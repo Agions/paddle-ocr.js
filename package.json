@@ -1,0 +1,82 @@
+{
+  "name": "paddleocr-js",
+  "version": "0.1.0",
+  "description": "JavaScript wrapper for PaddleOCR, providing OCR capabilities in browser and Node.js",
+  "main": "dist/node/index.js",
+  "browser": "dist/browser/index.min.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run clean && npm run build:node && npm run build:browser && npm run build:types",
+    "build:node": "webpack --config webpack.node.js",
+    "build:browser": "webpack --config webpack.browser.js",
+    "build:types": "tsc --emitDeclarationOnly",
+    "analyze": "webpack --config webpack.browser.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
+    "dev": "webpack --config webpack.dev.js --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "docs": "typedoc",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "keywords": [
+    "ocr",
+    "paddleocr",
+    "computer-vision",
+    "image-recognition",
+    "text-detection",
+    "text-recognition"
+  ],
+  "author": "agions",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agions/paddleocr-js.git"
+  },
+  "homepage": "https://github.com/agions/paddleocr-js#readme",
+  "bugs": {
+    "url": "https://github.com/agions/paddleocr-js/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.11.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.11.0",
+    "canvas": "^2.11.2",
+    "onnxruntime-web": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.4",
+    "@types/node": "^20.17.30",
+    "@typescript-eslint/eslint-plugin": "^6.6.0",
+    "@typescript-eslint/parser": "^6.6.0",
+    "buffer": "^6.0.3",
+    "compression-webpack-plugin": "^10.0.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "eslint": "^8.48.0",
+    "jest": "^29.6.4",
+    "path-browserify": "^1.0.1",
+    "rimraf": "^5.0.1",
+    "source-map-loader": "^4.0.1",
+    "stream-browserify": "^3.0.0",
+    "terser-webpack-plugin": "^5.3.9",
+    "ts-jest": "^29.1.1",
+    "ts-loader": "^9.4.4",
+    "typedoc": "^0.25.1",
+    "typescript": "^5.2.2",
+    "util": "^0.12.5",
+    "webpack": "^5.88.2",
+    "webpack-bundle-analyzer": "^4.9.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-merge": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

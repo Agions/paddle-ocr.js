@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PaddleOCR-JS 轻量级可视化示例</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 12px;
+      background-color: #f8f9fa;
+      color: #212529;
+      line-height: 1.5;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #343a40;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 5px;
+      color: #495057;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      background-color: #fff;
+    }
+
+    .btn {
+      display: inline-block;
+      font-weight: 400;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: middle;
+      user-select: none;
+      border: 1px solid transparent;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      border-radius: 4px;
+      transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .btn-primary {
+      color: #fff;
+      background-color: #007bff;
+      border-color: #007bff;
+    }
+
+    .btn-primary:hover {
+      background-color: #0069d9;
+      border-color: #0062cc;
+    }
+
+    .btn-secondary {
+      color: #fff;
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+
+    .btn-secondary:hover {
+      background-color: #5a6268;
+      border-color: #545b62;
+    }
+
+    .visualizer-container {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 4px;
+      border: 1px solid #dee2e6;
+      margin-bottom: 15px;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #dee2e6;
+      margin-bottom: 10px;
+    }
+
+    .tab {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-size: 0.9rem;
+    }
+
+    .tab.active {
+      border-bottom-color: #007bff;
+      color: #007bff;
+      font-weight: 500;
+    }
+
+    .option-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .option-item {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .result-box {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 0.85rem;
+      background-color: #f8f9fa;
+      margin-bottom: 15px;
+      word-break: break-all;
+    }
+
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #007bff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .progress-bar {
+      height: 4px;
+      background-color: #e9ecef;
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .progress-value {
+      height: 100%;
+      background-color: #007bff;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    @media (max-width: 576px) {
+      body {
+        padding: 8px;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .option-item {
+        min-width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>轻量级 OCR 可视化</h1>
+    <div class="subtitle">针对移动设备优化的 PaddleOCR 结果可视化</div>
+  </header>
+
+  <div class="card">
+    <div class="card-title">输入图像</div>
+    <div class="form-group">
+      <label for="imageUpload">上传图像</label>
+      <input type="file" id="imageUpload" accept="image/*" capture="camera">
+    </div>
+
+    <div class="form-group">
+      <label for="sampleSelect">或选择示例图像</label>
+      <select id="sampleSelect">
+        <option value="">-- 选择示例 --</option>
+        <option value="examples/images/text_example.jpg">文本示例</option>
+        <option value="examples/images/table_example.jpg">表格示例</option>
+        <option value="examples/images/layout_example.jpg">版面示例</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <div class="tabs">
+        <div class="tab active" data-mode="text">文本识别</div>
+        <div class="tab" data-mode="table">表格识别</div>
+        <div class="tab" data-mode="layout">版面分析</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <button id="runOcrBtn" class="btn btn-primary">运行 OCR</button>
+      <div class="progress-bar">
+        <div class="progress-value" id="progressBar"></div>
+      </div>
+      <div class="loader" id="loader"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">识别结果可视化</div>
+    <div id="visualizer" class="visualizer-container"></div>
+
+    <div class="form-group">
+      <div class="tabs">
+        <div class="tab active" data-render="simple">简洁模式</div>
+        <div class="tab" data-render="list">列表模式</div>
+        <div class="tab" data-render="full">完整模式</div>
+      </div>
+    </div>
+
+    <div class="option-row">
+      <div class="option-item">
+        <label for="colorPicker">框颜色</label>
+        <input type="color" id="colorPicker" value="#007bff" style="width: 100%;">
+      </div>
+
+      <div class="option-item">
+        <label for="lineWidth">线宽</label>
+        <select id="lineWidth">
+          <option value="1">细</option>
+          <option value="2" selected>中</option>
+          <option value="3">粗</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">识别结果</div>
+    <div id="resultBox" class="result-box">
+      <p>请上传图像并运行OCR...</p>
+    </div>
+
+    <div class="form-group">
+      <button id="copyResultBtn" class="btn btn-secondary">复制结果</button>
+    </div>
+  </div>
+
+  <script src="../dist/browser/index.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // 关键元素
+      const imageUpload = document.getElementById('imageUpload');
+      const sampleSelect = document.getElementById('sampleSelect');
+      const runOcrBtn = document.getElementById('runOcrBtn');
+      const visualizerContainer = document.getElementById('visualizer');
+      const resultBox = document.getElementById('resultBox');
+      const copyResultBtn = document.getElementById('copyResultBtn');
+      const progressBar = document.getElementById('progressBar');
+      const loader = document.getElementById('loader');
+
+      // 设置选项
+      const colorPicker = document.getElementById('colorPicker');
+      const lineWidthSelect = document.getElementById('lineWidth');
+
+      // 状态变量
+      let ocr = null;
+      let visualizer = null;
+      let currentMode = 'text';
+      let currentRenderMode = 'simple';
+      let ocrResult = null;
+      let isInitialized = false;
+
+      // 初始化OCR
+      async function initOCR () {
+        if (isInitialized) return true;
+
+        try {
+          progressBar.style.width = '10%';
+
+          ocr = new PaddleOCR({
+            modelPath: '../models',
+            enableDetection: true,
+            enableRecognition: true,
+            enableTable: true,
+            enableLayout: true,
+            useWasm: true,
+            onProgress: (progress, stage) => {
+              progressBar.style.width = `${10 + progress * 0.7}%`;
+              console.log(`进度: ${progress}%, 阶段: ${stage}`);
+            }
+          });
+
+          await ocr.init();
+
+          // 初始化可视化组件
+          visualizer = new PaddleOCR.LightVisualizer('visualizer', {
+            width: 300,
+            height: 200,
+            color: colorPicker.value,
+            lineWidth: parseInt(lineWidthSelect.value),
+            fontSize: 12,
+            responsive: true,
+            optimizeForMobile: true,
+            renderMode: currentRenderMode,
+            onSelect: handleResultSelect
+          });
+
+          isInitialized = true;
+          progressBar.style.width = '100%';
+
+          // 设置事件监听
+          setupEventListeners();
+
+          // 隐藏进度条
+          setTimeout(() => {
+            progressBar.style.width = '0%';
+          }, 500);
+
+          return true;
+        } catch (error) {
+          console.error('初始化失败:', error);
+          resultBox.innerHTML = `<p style="color: red;">初始化失败: ${error.message}</p>`;
+          progressBar.style.width = '0%';
+          return false;
+        }
+      }
+
+      // 设置事件监听
+      function setupEventListeners () {
+        // 模式切换
+        document.querySelectorAll('.tab[data-mode]').forEach(tab => {
+          tab.addEventListener('click', function () {
+            document.querySelectorAll('.tab[data-mode]').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            currentMode = this.getAttribute('data-mode');
+
+            if (visualizer && ocrResult) {
+              visualizer.setMode(currentMode);
+            }
+          });
+        });
+
+        // 渲染模式切换
+        document.querySelectorAll('.tab[data-render]').forEach(tab => {
+          tab.addEventListener('click', function () {
+            document.querySelectorAll('.tab[data-render]').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            currentRenderMode = this.getAttribute('data-render');
+
+            if (visualizer) {
+              visualizer.updateOptions({ renderMode: currentRenderMode });
+            }
+          });
+        });
+
+        // 设置颜色
+        colorPicker.addEventListener('change', function () {
+          if (visualizer) {
+            visualizer.updateOptions({ color: this.value });
+          }
+        });
+
+        // 设置线宽
+        lineWidthSelect.addEventListener('change', function () {
+          if (visualizer) {
+            visualizer.updateOptions({ lineWidth: parseInt(this.value) });
+          }
+        });
+
+        // 样本图片选择
+        sampleSelect.addEventListener('change', function () {
+          if (this.value) {
+            imageUpload.value = '';
+          }
+        });
+
+        // 文件上传
+        imageUpload.addEventListener('change', function () {
+          if (this.files && this.files[0]) {
+            sampleSelect.value = '';
+          }
+        });
+
+        // 复制结果
+        copyResultBtn.addEventListener('click', function () {
+          if (!ocrResult) return;
+
+          let textToCopy = '';
+
+          if (currentMode === 'text') {
+            textToCopy = ocrResult.textRecognition.map(item => item.text).join('\n');
+          } else if (currentMode === 'table' && ocrResult.html) {
+            textToCopy = ocrResult.html;
+          } else if (currentMode === 'layout') {
+            textToCopy = ocrResult.regions.map(region => {
+              if (typeof region.content === 'string') {
+                return `[${region.type}] ${region.content}`;
+              } else {
+                return `[${region.type}]`;
+              }
+            }).join('\n\n');
+          }
+
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalText = copyResultBtn.textContent;
+            copyResultBtn.textContent = '已复制!';
+            setTimeout(() => {
+              copyResultBtn.textContent = originalText;
+            }, 2000);
+          }).catch(err => {
+            console.error('复制失败:', err);
+          });
+        });
+      }
+
+      // 处理结果选择
+      function handleResultSelect (id, item) {
+        console.log('选中项目:', id, item);
+
+        if (currentMode === 'text' && item && item.text) {
+          navigator.vibrate && navigator.vibrate(50);
+          showSelectionPopup(item.text.text);
+        } else if (currentMode === 'table' && item) {
+          navigator.vibrate && navigator.vibrate(50);
+          showSelectionPopup(item.text);
+        } else if (currentMode === 'layout' && item) {
+          navigator.vibrate && navigator.vibrate(50);
+          const content = typeof item.content === 'string' ? item.content : `[${item.type}]`;
+          showSelectionPopup(content);
+        }
+      }
+
+      // 显示选择弹窗
+      function showSelectionPopup (text) {
+        // 简单实现，通常可以使用更复杂的UI组件
+        const popup = document.createElement('div');
+        popup.style.position = 'fixed';
+        popup.style.bottom = '20px';
+        popup.style.left = '50%';
+        popup.style.transform = 'translateX(-50%)';
+        popup.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        popup.style.color = 'white';
+        popup.style.padding = '10px 15px';
+        popup.style.borderRadius = '20px';
+        popup.style.maxWidth = '90%';
+        popup.style.zIndex = '1000';
+        popup.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+        popup.style.fontSize = '14px';
+        popup.textContent = text;
+
+        document.body.appendChild(popup);
+
+        setTimeout(() => {
+          popup.style.opacity = '0';
+          popup.style.transition = 'opacity 0.3s ease';
+          setTimeout(() => {
+            document.body.removeChild(popup);
+          }, 300);
+        }, 2000);
+      }
+
+      // 运行OCR
+      async function runOCR () {
+        const isReady = await initOCR();
+        if (!isReady) return;
+
+        // 检查是否有图像
+        let imageSource = null;
+
+        if (imageUpload.files && imageUpload.files[0]) {
+          imageSource = URL.createObjectURL(imageUpload.files[0]);
+        } else if (sampleSelect.value) {
+          imageSource = sampleSelect.value;
+        } else {
+          resultBox.innerHTML = '<p style="color: orange;">请先选择或上传图像</p>';
+          return;
+        }
+
+        try {
+          // 显示加载指示器
+          loader.style.display = 'block';
+          runOcrBtn.disabled = true;
+          resultBox.innerHTML = '<p>处理中...</p>';
+
+          // 加载图像
+          await visualizer.loadImage(imageSource);
+
+          // 根据模式执行OCR
+          if (currentMode === 'text') {
+            ocrResult = await ocr.recognize(imageSource);
+          } else if (currentMode === 'table') {
+            ocrResult = await ocr.recognizeTable(imageSource);
+          } else if (currentMode === 'layout') {
+            ocrResult = await ocr.analyzeLayout(imageSource);
+          }
+
+          // 设置结果
+          visualizer.setResult(ocrResult);
+          visualizer.setMode(currentMode);
+
+          // 更新结果显示
+          updateResultDisplay();
+        } catch (error) {
+          console.error('OCR处理失败:', error);
+          resultBox.innerHTML = `<p style="color: red;">OCR处理失败: ${error.message}</p>`;
+        } finally {
+          // 隐藏加载指示器
+          loader.style.display = 'none';
+          runOcrBtn.disabled = false;
+        }
+      }
+
+      // 更新结果显示
+      function updateResultDisplay () {
+        if (!ocrResult) {
+          resultBox.innerHTML = '<p>暂无识别结果</p>';
+          return;
+        }
+
+        let resultHtml = '';
+
+        if (currentMode === 'text') {
+          resultHtml = '<div style="font-size: 14px;">';
+          ocrResult.textRecognition.forEach((item, index) => {
+            resultHtml += `<div style="margin-bottom: 5px;">${index + 1}. ${item.text}</div>`;
+          });
+          resultHtml += '</div>';
+
+          // 添加简要统计信息
+          resultHtml += `<div style="margin-top: 10px; font-size: 12px; color: #6c757d;">
+            检测到 ${ocrResult.textDetection.length} 个文本框，识别出 ${ocrResult.textRecognition.length} 行文本
+            <br>耗时: ${ocrResult.duration.total} ms
+          </div>`;
+        } else if (currentMode === 'table') {
+          if (ocrResult.html) {
+            resultHtml = `<div style="font-size: 12px;">${ocrResult.html}</div>`;
+          } else {
+            resultHtml = '<div style="font-size: 14px;">';
+            ocrResult.cells.forEach(cell => {
+              resultHtml += `<div style="margin-bottom: 5px;">R${cell.row}C${cell.col}: ${cell.text}</div>`;
+            });
+            resultHtml += '</div>';
+          }
+
+          resultHtml += `<div style="margin-top: 10px; font-size: 12px; color: #6c757d;">
+            识别出 ${ocrResult.cells.length} 个表格单元格
+          </div>`;
+        } else if (currentMode === 'layout') {
+          resultHtml = '<div style="font-size: 14px;">';
+          ocrResult.regions.forEach((region, index) => {
+            resultHtml += `<div style="margin-bottom: 10px;">
+              <div style="font-weight: 500;">${index + 1}. ${region.type.toUpperCase()} (${(region.score * 100).toFixed(1)}%)</div>`;
+
+            if (typeof region.content === 'string') {
+              resultHtml += `<div style="padding-left: 15px;">${region.content}</div>`;
+            }
+
+            resultHtml += '</div>';
+          });
+          resultHtml += '</div>';
+
+          resultHtml += `<div style="margin-top: 10px; font-size: 12px; color: #6c757d;">
+            检测到 ${ocrResult.regions.length} 个版面区域
+          </div>`;
+        }
+
+        resultBox.innerHTML = resultHtml;
+      }
+
+      // 运行按钮点击事件
+      runOcrBtn.addEventListener('click', runOCR);
+
+      // 自动初始化
+      initOCR();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaddleOCR.js 浏览器示例</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 2s linear infinite;
+      margin: 20px auto;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .canvas-container {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    canvas {
+      border: 1px solid #ddd;
+    }
+
+    .text-box {
+      position: absolute;
+      border: 2px solid rgba(0, 255, 0, 0.7);
+      background-color: rgba(0, 255, 0, 0.1);
+      pointer-events: none;
+    }
+
+    .text-label {
+      position: absolute;
+      background-color: rgba(0, 255, 0, 0.7);
+      color: white;
+      font-size: 12px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .tab-content {
+      padding: 20px 0;
+    }
+
+    #resultText {
+      white-space: pre-wrap;
+      font-family: monospace;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .region {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .region.text {
+      background-color: rgba(144, 238, 144, 0.2);
+      border: 1px solid rgba(144, 238, 144, 0.5);
+    }
+
+    .region.title {
+      background-color: rgba(135, 206, 250, 0.2);
+      border: 1px solid rgba(135, 206, 250, 0.5);
+    }
+
+    .region.figure {
+      background-color: rgba(255, 182, 193, 0.2);
+      border: 1px solid rgba(255, 182, 193, 0.5);
+    }
+
+    .region.table {
+      background-color: rgba(255, 222, 173, 0.2);
+      border: 1px solid rgba(255, 222, 173, 0.5);
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    .table-responsive table {
+      border-collapse: collapse;
+    }
+
+    .table-responsive th,
+    .table-responsive td {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="#">PaddleOCR.js</a>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">OCR演示</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="image-upload" class="form-label">选择图像文件</label>
+              <input class="form-control" type="file" id="image-upload" accept="image/*">
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label class="form-label">模型配置</label>
+                <div class="mb-2">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="enable-detection" checked>
+                    <label class="form-check-label" for="enable-detection">文本检测</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="enable-recognition" checked>
+                    <label class="form-check-label" for="enable-recognition">文本识别</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="enable-table">
+                    <label class="form-check-label" for="enable-table">表格识别</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="enable-layout">
+                    <label class="form-check-label" for="enable-layout">版面分析</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label for="language-select" class="form-label">识别语言</label>
+                <select class="form-select" id="language-select">
+                  <option value="ch" selected>中文</option>
+                  <option value="en">英文</option>
+                  <option value="japan">日语</option>
+                  <option value="korean">韩语</option>
+                  <option value="french">法语</option>
+                  <option value="german">德语</option>
+                  <option value="it">意大利语</option>
+                  <option value="spanish">西班牙语</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="progress mb-3">
+              <div id="loading-progress" class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar" style="width: 0%"></div>
+            </div>
+            <div id="loading-stage" class="small text-muted mb-3"></div>
+
+            <div class="d-flex justify-content-between">
+              <button id="run-ocr" class="btn btn-primary">运行OCR</button>
+              <button id="clear-btn" class="btn btn-outline-secondary">清除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">输入图像</h5>
+          </div>
+          <div class="card-body">
+            <div class="canvas-container">
+              <canvas id="input-canvas"></canvas>
+              <div id="detection-overlay"></div>
+            </div>
+            <div id="loader" class="loader"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="result-tabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-result"
+                  type="button" role="tab" aria-controls="text-result" aria-selected="true">文本</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-result" type="button"
+                  role="tab" aria-controls="json-result" aria-selected="false">JSON</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="layout-tab" data-bs-toggle="tab" data-bs-target="#layout-result"
+                  type="button" role="tab" aria-controls="layout-result" aria-selected="false">版面</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="table-tab" data-bs-toggle="tab" data-bs-target="#table-result"
+                  type="button" role="tab" aria-controls="table-result" aria-selected="false">表格</button>
+              </li>
+            </ul>
+          </div>
+          <div class="card-body">
+            <div class="tab-content" id="result-tabs-content">
+              <div class="tab-pane fade show active" id="text-result" role="tabpanel" aria-labelledby="text-tab">
+                <pre id="resultText" class="mb-0"></pre>
+              </div>
+              <div class="tab-pane fade" id="json-result" role="tabpanel" aria-labelledby="json-tab">
+                <pre id="resultJson" class="mb-0"></pre>
+              </div>
+              <div class="tab-pane fade" id="layout-result" role="tabpanel" aria-labelledby="layout-tab">
+                <div id="layoutResult"></div>
+              </div>
+              <div class="tab-pane fade" id="table-result" role="tabpanel" aria-labelledby="table-tab">
+                <div id="tableResult" class="table-responsive"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">性能统计</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>阶段</th>
+                    <th>耗时 (ms)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>预处理</td>
+                    <td id="time-preprocess">-</td>
+                  </tr>
+                  <tr>
+                    <td>文本检测</td>
+                    <td id="time-detection">-</td>
+                  </tr>
+                  <tr>
+                    <td>文本识别</td>
+                    <td id="time-recognition">-</td>
+                  </tr>
+                  <tr>
+                    <td>总耗时</td>
+                    <td id="time-total">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-light py-4 mt-5">
+    <div class="container text-center">
+      <p class="mb-0">基于<a href="https://github.com/PaddlePaddle/PaddleOCR" target="_blank">PaddleOCR</a>的JavaScript封装库
+      </p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/paddleocr-js/dist/browser/index.min.js"></script>
+  <script>
+    // PaddleOCR实例
+    let paddleOcr = null;
+    let isInitialized = false;
+    let lastResult = null;
+
+    // DOM元素
+    const imageUpload = document.getElementById('image-upload');
+    const inputCanvas = document.getElementById('input-canvas');
+    const ctx = inputCanvas.getContext('2d');
+    const detectionOverlay = document.getElementById('detection-overlay');
+    const resultText = document.getElementById('resultText');
+    const resultJson = document.getElementById('resultJson');
+    const layoutResult = document.getElementById('layoutResult');
+    const tableResult = document.getElementById('tableResult');
+    const runOcrBtn = document.getElementById('run-ocr');
+    const clearBtn = document.getElementById('clear-btn');
+    const enableDetection = document.getElementById('enable-detection');
+    const enableRecognition = document.getElementById('enable-recognition');
+    const enableTable = document.getElementById('enable-table');
+    const enableLayout = document.getElementById('enable-layout');
+    const languageSelect = document.getElementById('language-select');
+    const loadingProgress = document.getElementById('loading-progress');
+    const loadingStage = document.getElementById('loading-stage');
+    const loader = document.getElementById('loader');
+
+    // 性能指标元素
+    const timePreprocess = document.getElementById('time-preprocess');
+    const timeDetection = document.getElementById('time-detection');
+    const timeRecognition = document.getElementById('time-recognition');
+    const timeTotal = document.getElementById('time-total');
+
+    // 图像上传处理
+    imageUpload.addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          // 调整canvas大小以适应图像
+          const maxWidth = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth) {
+            const ratio = maxWidth / width;
+            width = maxWidth;
+            height = height * ratio;
+          }
+
+          inputCanvas.width = width;
+          inputCanvas.height = height;
+
+          // 绘制图像
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // 清除之前的检测结果
+          clearResults();
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 运行OCR
+    runOcrBtn.addEventListener('click', async function () {
+      if (inputCanvas.width === 0 || inputCanvas.height === 0) {
+        alert('请先选择一张图片');
+        return;
+      }
+
+      try {
+        // 显示加载中
+        loader.style.display = 'block';
+        runOcrBtn.disabled = true;
+
+        // 获取配置
+        const options = {
+          modelPath: 'models',
+          language: languageSelect.value,
+          enableDetection: enableDetection.checked,
+          enableRecognition: enableRecognition.checked,
+          enableTable: enableTable.checked,
+          enableLayout: enableLayout.checked,
+          onProgress: updateProgress
+        };
+
+        // 如果已初始化，但配置有变化，需要重新初始化
+        if (isInitialized && paddleOcr) {
+          await paddleOcr.dispose();
+          isInitialized = false;
+        }
+
+        // 创建PaddleOCR实例
+        if (!paddleOcr) {
+          paddleOcr = new PaddleOCR(options);
+        } else {
+          paddleOcr.updateOptions(options);
+        }
+
+        // 初始化
+        if (!isInitialized) {
+          await paddleOcr.init();
+          isInitialized = true;
+        }
+
+        // 执行识别
+        let result;
+        clearResults();
+
+        if (enableLayout.checked) {
+          // 版面分析
+          result = await paddleOcr.analyzeLayout(inputCanvas);
+          displayLayoutResult(result);
+        } else if (enableTable.checked) {
+          // 表格识别
+          result = await paddleOcr.recognizeTable(inputCanvas);
+          displayTableResult(result);
+        } else {
+          // 文本识别
+          result = await paddleOcr.recognize(inputCanvas);
+          displayResult(result);
+        }
+
+        lastResult = result;
+      } catch (error) {
+        console.error('OCR处理失败:', error);
+        alert('OCR处理失败: ' + error.message);
+      } finally {
+        // 隐藏加载中
+        loader.style.display = 'none';
+        runOcrBtn.disabled = false;
+      }
+    });
+
+    // 清除按钮
+    clearBtn.addEventListener('click', function () {
+      // 清除图像
+      ctx.clearRect(0, 0, inputCanvas.width, inputCanvas.height);
+      inputCanvas.width = 0;
+      inputCanvas.height = 0;
+
+      // 清除结果
+      clearResults();
+
+      // 清除文件选择
+      imageUpload.value = '';
+    });
+
+    // 更新进度条
+    function updateProgress (progress, stage) {
+      loadingProgress.style.width = `${progress}%`;
+      loadingStage.textContent = stage;
+    }
+
+    // 清除结果
+    function clearResults () {
+      detectionOverlay.innerHTML = '';
+      resultText.textContent = '';
+      resultJson.textContent = '';
+      layoutResult.innerHTML = '';
+      tableResult.innerHTML = '';
+
+      // 清除性能指标
+      timePreprocess.textContent = '-';
+      timeDetection.textContent = '-';
+      timeRecognition.textContent = '-';
+      timeTotal.textContent = '-';
+
+      lastResult = null;
+    }
+
+    // 显示文本识别结果
+    function displayResult (result) {
+      if (!result) return;
+
+      // 显示检测框
+      if (result.textDetection && result.textDetection.length > 0) {
+        displayDetectionBoxes(result.textDetection);
+      }
+
+      // 显示识别文本
+      if (result.textRecognition && result.textRecognition.length > 0) {
+        const textContent = result.textRecognition
+          .map(line => line.text)
+          .join('\n');
+
+        resultText.textContent = textContent;
+      }
+
+      // 显示JSON结果
+      resultJson.textContent = JSON.stringify(result, null, 2);
+
+      // 更新性能指标
+      if (result.duration) {
+        timePreprocess.textContent = result.duration.preprocess;
+        timeDetection.textContent = result.duration.detection;
+        timeRecognition.textContent = result.duration.recognition;
+        timeTotal.textContent = result.duration.total;
+      }
+    }
+
+    // 显示检测框
+    function displayDetectionBoxes (boxes) {
+      detectionOverlay.innerHTML = '';
+
+      const canvasRect = inputCanvas.getBoundingClientRect();
+      const scaleX = inputCanvas.width / canvasRect.width;
+      const scaleY = inputCanvas.height / canvasRect.height;
+
+      boxes.forEach((box, index) => {
+        const points = box.box;
+
+        // 计算边界框
+        let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+        points.forEach(point => {
+          minX = Math.min(minX, point.x);
+          minY = Math.min(minY, point.y);
+          maxX = Math.max(maxX, point.x);
+          maxY = Math.max(maxY, point.y);
+        });
+
+        // 创建边界框元素
+        const boxDiv = document.createElement('div');
+        boxDiv.className = 'text-box';
+        boxDiv.style.left = `${minX / scaleX}px`;
+        boxDiv.style.top = `${minY / scaleY}px`;
+        boxDiv.style.width = `${(maxX - minX) / scaleX}px`;
+        boxDiv.style.height = `${(maxY - minY) / scaleY}px`;
+
+        // 创建标签元素
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'text-label';
+        labelDiv.innerText = `${index + 1}`;
+        labelDiv.style.left = `${minX / scaleX}px`;
+        labelDiv.style.top = `${(minY / scaleY) - 20}px`;
+
+        detectionOverlay.appendChild(boxDiv);
+        detectionOverlay.appendChild(labelDiv);
+      });
+    }
+
+    // 显示版面分析结果
+    function displayLayoutResult (result) {
+      if (!result || !result.regions) return;
+
+      layoutResult.innerHTML = '';
+
+      // 显示JSON结果
+      resultJson.textContent = JSON.stringify(result, null, 2);
+
+      // 显示区域内容
+      result.regions.forEach(region => {
+        const regionDiv = document.createElement('div');
+        regionDiv.className = `region ${region.type}`;
+
+        const titleElem = document.createElement('h5');
+        titleElem.textContent = `${region.type} (置信度: ${region.score.toFixed(2)})`;
+        regionDiv.appendChild(titleElem);
+
+        const contentElem = document.createElement('div');
+
+        if (region.type === 'table' && typeof region.content === 'object') {
+          // 表格区域
+          contentElem.innerHTML = region.content.html;
+        } else {
+          // 文本区域
+          contentElem.textContent = region.content || '';
+        }
+
+        regionDiv.appendChild(contentElem);
+        layoutResult.appendChild(regionDiv);
+      });
+    }
+
+    // 显示表格识别结果
+    function displayTableResult (result) {
+      if (!result) return;
+
+      // 显示JSON结果
+      resultJson.textContent = JSON.stringify(result, null, 2);
+
+      // 显示HTML表格
+      if (result.html) {
+        tableResult.innerHTML = result.html;
+      }
+    }
+  </script>
+</body>
+
+</html>

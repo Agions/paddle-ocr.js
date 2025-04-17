@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaddleOCR-JS 结果可视化示例</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .panel {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .control-panel {
+      flex-basis: 100%;
+    }
+
+    .visualizer {
+      width: 100%;
+      height: 500px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+    }
+
+    .result-info {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      padding: 10px;
+      font-family: monospace;
+      background-color: #f9f9f9;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      margin-right: 5px;
+    }
+
+    .tab.active {
+      background-color: white;
+      border-color: #ddd;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .tab:hover:not(.active) {
+      background-color: #f0f0f0;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input,
+    select,
+    button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .color-option {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .color-preview {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #ddd;
+      margin-right: 10px;
+    }
+
+    .loader {
+      display: none;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 2s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .highlight {
+      background-color: #fff8e1;
+      padding: 2px 5px;
+      border-left: 3px solid #ffc107;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>PaddleOCR-JS 结果可视化示例</h1>
+
+  <div class="container">
+    <div class="panel control-panel">
+      <div class="tabs">
+        <div class="tab active" data-mode="text">文本识别</div>
+        <div class="tab" data-mode="table">表格识别</div>
+        <div class="tab" data-mode="layout">版面分析</div>
+      </div>
+
+      <div class="form-group">
+        <label for="imageUpload">上传图像</label>
+        <input type="file" id="imageUpload" accept="image/*">
+      </div>
+
+      <div class="form-group">
+        <label for="sampleImages">或选择示例图像</label>
+        <select id="sampleImages">
+          <option value="">-- 选择示例图像 --</option>
+          <option value="examples/images/text_example.jpg">文本示例</option>
+          <option value="examples/images/table_example.jpg">表格示例</option>
+          <option value="examples/images/layout_example.jpg">版面示例</option>
+        </select>
+      </div>
+
+      <button id="runOCR">运行 OCR</button>
+      <div id="loader" class="loader"></div>
+    </div>
+
+    <div class="panel">
+      <h2>可视化结果</h2>
+      <div id="visualizer" class="visualizer"></div>
+
+      <h3>可视化设置</h3>
+      <div class="form-group">
+        <div class="color-option">
+          <div class="color-preview" id="boxColorPreview"></div>
+          <label for="boxColor">框颜色:</label>
+          <input type="color" id="boxColor" value="#0000ff80">
+        </div>
+
+        <div class="color-option">
+          <div class="color-preview" id="textColorPreview"></div>
+          <label for="textColor">文本颜色:</label>
+          <input type="color" id="textColor" value="#ffffff">
+        </div>
+
+        <div class="color-option">
+          <div class="color-preview" id="bgColorPreview"></div>
+          <label for="bgColor">背景颜色:</label>
+          <input type="color" id="bgColor" value="#00000080">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label><input type="checkbox" id="showConfidence" checked> 显示置信度</label>
+      </div>
+
+      <div class="form-group">
+        <label><input type="checkbox" id="showBoxId" checked> 显示框ID</label>
+      </div>
+
+      <div class="form-group">
+        <label for="fontSize">字体大小:</label>
+        <input type="range" id="fontSize" min="8" max="24" value="14">
+        <span id="fontSizeValue">14px</span>
+      </div>
+
+      <button id="exportImage">导出图像</button>
+    </div>
+
+    <div class="panel">
+      <h2>识别结果</h2>
+      <div class="tabs">
+        <div class="tab active" data-result="raw">原始数据</div>
+        <div class="tab" data-result="text">文本内容</div>
+      </div>
+      <div id="resultInfo" class="result-info">
+        <p>请上传图像并运行OCR识别...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="../dist/browser/index.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // 初始化变量
+      let ocr = null;
+      let visualizer = null;
+      let currentMode = 'text';
+      let currentResult = null;
+      let resultTab = 'raw';
+
+      // DOM元素
+      const imageUpload = document.getElementById('imageUpload');
+      const sampleImages = document.getElementById('sampleImages');
+      const runOCRButton = document.getElementById('runOCR');
+      const loader = document.getElementById('loader');
+      const resultInfo = document.getElementById('resultInfo');
+      const exportButton = document.getElementById('exportImage');
+
+      // 可视化设置元素
+      const boxColor = document.getElementById('boxColor');
+      const textColor = document.getElementById('textColor');
+      const bgColor = document.getElementById('bgColor');
+      const showConfidence = document.getElementById('showConfidence');
+      const showBoxId = document.getElementById('showBoxId');
+      const fontSize = document.getElementById('fontSize');
+      const fontSizeValue = document.getElementById('fontSizeValue');
+
+      // 颜色预览
+      const boxColorPreview = document.getElementById('boxColorPreview');
+      const textColorPreview = document.getElementById('textColorPreview');
+      const bgColorPreview = document.getElementById('bgColorPreview');
+
+      // 初始化OCR
+      async function initOCR () {
+        try {
+          // 创建OCR实例
+          ocr = new PaddleOCR({
+            modelPath: '../models',
+            enableDetection: true,
+            enableRecognition: true,
+            enableTable: true,
+            enableLayout: true,
+            onProgress: (progress, stage) => {
+              console.log(`进度: ${progress}%, 阶段: ${stage}`);
+            }
+          });
+
+          // 初始化OCR
+          await ocr.init();
+          console.log('OCR初始化完成');
+
+          // 初始化可视化组件
+          visualizer = new PaddleOCR.ResultVisualizer('visualizer', {
+            width: 800,
+            height: 500,
+            boxColor: hexToRgba(boxColor.value),
+            textColor: textColor.value,
+            backgroundColor: hexToRgba(bgColor.value),
+            fontSize: parseInt(fontSize.value),
+            showConfidence: showConfidence.checked,
+            showBoxId: showBoxId.checked
+          });
+
+          // 设置可视化事件
+          visualizer.addEventListener('hover', function (e) {
+            if (e.detail.element) {
+              highlightResult(e.detail.index);
+            } else {
+              removeHighlight();
+            }
+          });
+
+          visualizer.addEventListener('click', function (e) {
+            if (e.detail.element) {
+              console.log('点击元素:', e.detail.element);
+            }
+          });
+
+          // 设置模式切换
+          document.querySelectorAll('.tabs .tab[data-mode]').forEach(tab => {
+            tab.addEventListener('click', function () {
+              document.querySelectorAll('.tabs .tab[data-mode]').forEach(t => t.classList.remove('active'));
+              this.classList.add('active');
+              currentMode = this.getAttribute('data-mode');
+              if (visualizer && currentResult) {
+                visualizer.setMode(currentMode);
+              }
+            });
+          });
+
+          // 设置结果标签切换
+          document.querySelectorAll('.tabs .tab[data-result]').forEach(tab => {
+            tab.addEventListener('click', function () {
+              document.querySelectorAll('.tabs .tab[data-result]').forEach(t => t.classList.remove('active'));
+              this.classList.add('active');
+              resultTab = this.getAttribute('data-result');
+              updateResultInfo();
+            });
+          });
+
+          // 设置可视化选项变更
+          boxColor.addEventListener('input', updateVisualizerOptions);
+          textColor.addEventListener('input', updateVisualizerOptions);
+          bgColor.addEventListener('input', updateVisualizerOptions);
+          showConfidence.addEventListener('change', updateVisualizerOptions);
+          showBoxId.addEventListener('change', updateVisualizerOptions);
+          fontSize.addEventListener('input', function () {
+            fontSizeValue.textContent = `${this.value}px`;
+            updateVisualizerOptions();
+          });
+
+          // 导出图像
+          exportButton.addEventListener('click', function () {
+            if (visualizer) {
+              const dataUrl = visualizer.exportImage();
+              const a = document.createElement('a');
+              a.href = dataUrl;
+              a.download = `paddleocr-result-${new Date().getTime()}.png`;
+              a.click();
+            }
+          });
+
+          // 初始化颜色预览
+          updateColorPreviews();
+
+        } catch (error) {
+          console.error('OCR初始化失败:', error);
+          alert('OCR初始化失败: ' + error.message);
+        }
+      }
+
+      // 运行OCR识别
+      async function runOCR () {
+        if (!ocr || !visualizer) {
+          alert('请等待OCR初始化完成');
+          return;
+        }
+
+        const imageFile = imageUpload.files[0];
+        let imageSrc = '';
+
+        if (imageFile) {
+          imageSrc = URL.createObjectURL(imageFile);
+        } else if (sampleImages.value) {
+          imageSrc = sampleImages.value;
+        } else {
+          alert('请上传图像或选择示例图像');
+          return;
+        }
+
+        try {
+          loader.style.display = 'block';
+          runOCRButton.disabled = true;
+
+          // 加载图像到可视化组件
+          await visualizer.loadImage(imageSrc);
+
+          // 运行OCR
+          let result;
+          switch (currentMode) {
+            case 'text':
+              result = await ocr.recognize(imageSrc);
+              break;
+            case 'table':
+              result = await ocr.recognizeTable(imageSrc);
+              break;
+            case 'layout':
+              result = await ocr.analyzeLayout(imageSrc);
+              break;
+          }
+
+          // 显示结果
+          currentResult = result;
+          visualizer.setResult(result);
+          visualizer.setMode(currentMode);
+
+          // 更新结果信息
+          updateResultInfo();
+        } catch (error) {
+          console.error('OCR识别失败:', error);
+          alert('OCR识别失败: ' + error.message);
+        } finally {
+          loader.style.display = 'none';
+          runOCRButton.disabled = false;
+        }
+      }
+
+      // 更新结果信息
+      function updateResultInfo () {
+        if (!currentResult) {
+          return;
+        }
+
+        if (resultTab === 'raw') {
+          // 显示原始JSON
+          resultInfo.innerHTML = `<pre>${JSON.stringify(currentResult, null, 2)}</pre>`;
+        } else if (resultTab === 'text') {
+          // 仅显示识别出的文本
+          let textContent = '';
+
+          if (currentMode === 'text' && currentResult.textRecognition) {
+            textContent = currentResult.textRecognition
+              .map(line => line.text)
+              .join('\n');
+          } else if (currentMode === 'table' && currentResult.html) {
+            textContent = currentResult.html;
+          } else if (currentMode === 'layout' && currentResult.regions) {
+            textContent = currentResult.regions
+              .map(region => {
+                if (typeof region.content === 'string') {
+                  return `[${region.type}] ${region.content}`;
+                } else {
+                  return `[${region.type}]`;
+                }
+              })
+              .join('\n\n');
+          }
+
+          resultInfo.innerHTML = `<div>${textContent.replace(/\n/g, '<br>')}</div>`;
+        }
+      }
+
+      // 高亮结果
+      function highlightResult (index) {
+        removeHighlight();
+
+        if (resultTab === 'raw' && index >= 0) {
+          const pre = resultInfo.querySelector('pre');
+          if (!pre) return;
+
+          const json = JSON.parse(pre.textContent);
+          let lines = pre.innerHTML.split('\n');
+
+          // 查找要高亮的行
+          if (currentMode === 'text') {
+            // 查找text detection和recognition部分中的相应索引
+            highlightJsonPart(lines, 'textDetection', index);
+
+            // 尝试查找相应的识别结果
+            const boxId = json.textDetection[index].id;
+            const recogIndex = json.textRecognition.findIndex(t => t.box && t.box.id === boxId);
+            if (recogIndex >= 0) {
+              highlightJsonPart(lines, 'textRecognition', recogIndex);
+            }
+          } else if (currentMode === 'table') {
+            highlightJsonPart(lines, 'cells', index);
+          } else if (currentMode === 'layout') {
+            highlightJsonPart(lines, 'regions', index);
+          }
+
+          pre.innerHTML = lines.join('\n');
+        }
+      }
+
+      // 高亮JSON中的特定部分
+      function highlightJsonPart (lines, arrayName, index) {
+        const startPattern = new RegExp(`"${arrayName}":\\s*\\[`);
+        const endPattern = /\]/;
+
+        let inArray = false;
+        let arrayIndex = -1;
+        let bracketCount = 0;
+        let startLine = -1;
+        let endLine = -1;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+
+          if (!inArray && startPattern.test(line)) {
+            inArray = true;
+            continue;
+          }
+
+          if (inArray) {
+            // 计算开括号和闭括号
+            if (line.includes('{')) {
+              bracketCount++;
+              if (bracketCount === 1) {
+                arrayIndex++;
+                if (arrayIndex === index) {
+                  startLine = i;
+                }
+              }
+            }
+
+            if (line.includes('}')) {
+              bracketCount--;
+              if (bracketCount === 0 && arrayIndex === index) {
+                endLine = i;
+                break;
+              }
+            }
+
+            // 如果到达数组结尾，退出
+            if (endPattern.test(line) && bracketCount === 0) {
+              break;
+            }
+          }
+        }
+
+        // 高亮找到的行
+        if (startLine >= 0 && endLine >= 0) {
+          for (let i = startLine; i <= endLine; i++) {
+            lines[i] = `<span class="highlight">${lines[i]}</span>`;
+          }
+        }
+      }
+
+      // 移除高亮
+      function removeHighlight () {
+        const highlightedSpans = resultInfo.querySelectorAll('.highlight');
+        highlightedSpans.forEach(span => {
+          const parent = span.parentNode;
+          parent.insertBefore(document.createTextNode(span.textContent), span);
+          parent.removeChild(span);
+        });
+      }
+
+      // 更新可视化选项
+      function updateVisualizerOptions () {
+        if (visualizer) {
+          visualizer.updateOptions({
+            boxColor: hexToRgba(boxColor.value),
+            textColor: textColor.value,
+            backgroundColor: hexToRgba(bgColor.value),
+            fontSize: parseInt(fontSize.value),
+            showConfidence: showConfidence.checked,
+            showBoxId: showBoxId.checked
+          });
+
+          updateColorPreviews();
+        }
+      }
+
+      // 更新颜色预览
+      function updateColorPreviews () {
+        boxColorPreview.style.backgroundColor = boxColor.value;
+        textColorPreview.style.backgroundColor = textColor.value;
+        bgColorPreview.style.backgroundColor = bgColor.value;
+      }
+
+      // 工具函数：hex转rgba
+      function hexToRgba (hex) {
+        hex = hex.replace('#', '');
+
+        let r, g, b, a = 1;
+        if (hex.length === 3) {
+          r = parseInt(hex.charAt(0) + hex.charAt(0), 16);
+          g = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+          b = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+        } else {
+          r = parseInt(hex.substring(0, 2), 16);
+          g = parseInt(hex.substring(2, 4), 16);
+          b = parseInt(hex.substring(4, 6), 16);
+          if (hex.length === 8) {
+            a = parseInt(hex.substring(6, 8), 16) / 255;
+          }
+        }
+
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      }
+
+      // 事件绑定
+      runOCRButton.addEventListener('click', runOCR);
+      imageUpload.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+          sampleImages.value = '';
+        }
+      });
+      sampleImages.addEventListener('change', function () {
+        if (this.value) {
+          imageUpload.value = '';
+        }
+      });
+
+      // 初始化
+      initOCR().catch(console.error);
+    });
+  </script>
+</body>
+
+</html>

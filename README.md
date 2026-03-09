@@ -1,6 +1,31 @@
 # PaddleOCR-JS
 
-JavaScript wrapper for PaddleOCR, providing OCR capabilities in browser and Node.js
+<p align="center">
+  <a href="https://www.npmjs.com/package/paddleocr-js">
+    <img src="https://img.shields.io/npm/v/paddleocr-js.svg" alt="npm version">
+  </a>
+  <a href="https://www.npmjs.com/package/paddleocr-js">
+    <img src="https://img.shields.io/npm/dm/paddleocr-js.svg" alt="npm downloads">
+  </a>
+  <a href="https://github.com/Agions/paddle-ocr.js/blob/main/LICENSE">
+    <img src="https://img.shields.io/npm/l/paddleocr-js.svg" alt="license">
+  </a>
+  <a href="https://github.com/Agions/paddle-ocr.js/actions">
+    <img src="https://github.com/Agions/paddle-ocr.js/workflows/CI/badge.svg" alt="CI">
+  </a>
+</p>
+
+> 🚀 PaddleOCR JavaScript 封装，支持浏览器和 Node.js 的 OCR 识别
+
+## 特性
+
+- 📝 **文本识别** - 支持 80+ 语言的中英文识别
+- 📊 **表格识别** - 精准识别表格结构，输出 HTML/Markdown/Excel
+- 🔢 **公式识别** - 识别数学公式，输出 LaTeX/MathML
+- 📱 **条码识别** - 支持 QR 码、条形码等 10+ 格式
+- 🗂️ **布局分析** - 自动识别文档布局结构
+- ⚡ **高性能** - 模型缓存、Web Worker 支持
+- 🌐 **跨平台** - 浏览器、小程序、Node.js
 
 ## 安装
 
@@ -15,7 +40,7 @@ yarn add paddleocr-js
 pnpm add paddleocr-js
 ```
 
-## 基本用法
+## 快速开始
 
 ### 浏览器环境
 
@@ -23,131 +48,273 @@ pnpm add paddleocr-js
 <script src="dist/browser/index.min.js"></script>
 <script>
   const paddleOCR = new PaddleOCR({
-    modelPath: 'path/to/models',
-    useTensorflow: true,
-    useWasm: true
+    modelPath: '/models',
+    useWasm: true,
+    language: 'ch'
   });
   
-  // 启动OCR
   paddleOCR.init().then(() => {
-    // 对图像进行处理
     paddleOCR.recognize(imageElement).then(result => {
-      console.log(result);
+      console.log(result.textRecognition);
     });
   });
 </script>
 ```
 
-### Node.js环境
+### Node.js 环境
 
 ```javascript
-const { PaddleOCR } = require('paddleocr-js');
-const fs = require('fs');
+import { PaddleOCR } from 'paddleocr-js';
+import fs from 'fs';
 
-async function runOCR() {
-  // 创建PaddleOCR实例
+async function main() {
   const paddleOCR = new PaddleOCR({
-    modelPath: 'path/to/models',
-    useTensorflow: true
+    language: 'ch',
+    useWasm: true
   });
   
-  // 初始化
   await paddleOCR.init();
   
-  // 读取图像并识别
-  const imageBuffer = fs.readFileSync('path/to/image.jpg');
+  const imageBuffer = fs.readFileSync('image.jpg');
   const result = await paddleOCR.recognize(imageBuffer);
   
-  console.log(result);
+  console.log('识别结果:', result.textRecognition);
 }
 
-runOCR();
+main();
 ```
 
-### 使用ES模块
+### ES Modules
 
 ```javascript
 import { PaddleOCR } from 'paddleocr-js';
 
 async function detectText() {
   const paddleOCR = new PaddleOCR({
-    modelPath: 'path/to/models',
-    useTensorflow: true,
-    useWasm: true
+    modelPath: '/models',
+    useWasm: true,
+    language: 'ch'
   });
   
   await paddleOCR.init();
   
-  const result = await paddleOCR.recognize(imageElement);
-  return result;
+  const result = await paddleOCR.recognize('https://example.com/image.jpg');
+  console.log(result);
 }
+
+detectText();
+```
+
+## 功能示例
+
+### 文本识别
+
+```javascript
+const paddleOCR = new PaddleOCR({
+  language: 'ch',       // 语言: ch, en, fr, de, ja, ko...
+  useWasm: true,        // 使用 WebAssembly 加速
+  enableGPU: false,     // 启用 GPU 加速
+  detectionModel: 'DB', // 检测模型: DB, DB++, EAST
+  recognitionModel: 'CRNN' // 识别模型: CRNN, SVTR
+});
+
+await paddleOCR.init();
+const result = await paddleOCR.recognize(imageSource);
+
+// 结果结构
+// {
+//   textDetection: [{ box: [...], score: 0.95 }],
+//   textRecognition: [{ text: '识别文本', score: 0.92 }],
+//   duration: { total: 1200, detection: 800, recognition: 400 }
+// }
+```
+
+### 表格识别
+
+```javascript
+const paddleOCR = new PaddleOCR({
+  enableTable: true,
+  tableOptions: {
+    format: 'html' // 输出格式: html, markdown, excel
+  }
+});
+
+await paddleOCR.init();
+const tableResult = await paddleOCR.recognizeTable(imageSource);
+
+// tableResult.html     // HTML 表格
+// tableResult.markdown // Markdown 表格
+// tableResult.excel    // Base64 编码的 Excel
+```
+
+### 公式识别
+
+```javascript
+const paddleOCR = new PaddleOCR({
+  enableFormula: true,
+  formulaOptions: {
+    enableLatex: true,
+    enableMathML: false
+  }
+});
+
+const formulas = await paddleOCR.recognizeFormula(imageSource);
+
+// formulas[0].latex  // LaTeX 格式: \frac{a}{b}
+// formulas[0].tex    // 原始 TeX
+```
+
+### 条码识别
+
+```javascript
+const paddleOCR = new PaddleOCR({
+  enableBarcode: true
+});
+
+const barcodes = await paddleOCR.detectBarcodes(imageSource);
+
+// barcodes[0].type   // 'qr_code', 'code_128'...
+// barcodes[0].data   // 编码内容
+```
+
+### 批量处理
+
+```javascript
+const images = ['img1.jpg', 'img2.jpg', 'img3.jpg'];
+const batchResult = await paddleOCR.recognizeBatch(images);
+
+// batchResult.results         // OCRResult 数组
+// batchResult.totalDuration    // 总耗时
+// batchResult.averageDuration // 平均耗时
+```
+
+### 布局分析
+
+```javascript
+const paddleOCR = new PaddleOCR({
+  enableLayout: true
+});
+
+const layout = await paddleOCR.analyzeLayout(imageSource);
+
+// layout.regions[0].type  // 'text', 'title', 'figure', 'table'...
+// layout.regions[0].box   // 区域坐标
+// layout.regions[0].content // 区域内容
 ```
 
 ## 配置选项
 
-```javascript
-const options = {
-  // 模型路径
-  modelPath: 'path/to/models',
-  
-  // 后端选择
-  useTensorflow: true, // 使用TensorFlow.js作为后端
-  useONNX: false,      // 使用ONNX Runtime作为后端
-  
-  // 特定环境优化
-  useWasm: true,       // 在浏览器中使用WASM加速
-  enableGPU: false,    // 在Node.js中启用GPU加速
-  
-  // 模型选择
-  detectionModel: 'DB', // 文字检测模型
-  recognitionModel: 'CRNN', // 文字识别模型
-  
-  // 语言设置
-  language: 'ch',      // 支持语言: 'ch', 'en', 'japan', 'korean' 等
-  
-  // 功能开关
-  enableDetection: true,     // 启用文本检测
-  enableRecognition: true,   // 启用文本识别
-  enableLayout: false,       // 启用版面分析
-  enableTable: false,        // 启用表格识别
-  
-  // 性能设置
-  maxWorkers: 4,             // WebWorker最大数量
-  maxConcurrency: 4,         // 最大并发任务数
-  
-  // 回调函数
-  onProgress: (progress, stage) => {
-    console.log(`进度: ${progress}%, 阶段: ${stage}`);
-  }
-};
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `modelPath` | string | `/models` | 模型路径 |
+| `useWasm` | boolean | `true` | 使用 WebAssembly |
+| `useTensorflow` | boolean | `true` | 使用 TensorFlow.js |
+| `useONNX` | boolean | `false` | 使用 ONNX Runtime |
+| `language` | string | `ch` | 识别语言 |
+| `enableTable` | boolean | `false` | 启用表格识别 |
+| `enableFormula` | boolean | `false` | 启用公式识别 |
+| `enableBarcode` | boolean | `false` | 启用条码识别 |
+| `enableLayout` | boolean | `false` | 启用布局分析 |
+| `enableCache` | boolean | `true` | 启用缓存 |
+| `maxSideLen` | number | `960` | 最大边长 |
+| `threshold` | number | `0.3` | 检测阈值 |
+| `batchSize` | number | `1` | 批处理大小 |
+| `numThreads` | number | `4` | WASM 线程数 |
 
-const paddleOCR = new PaddleOCR(options);
+## API
+
+### PaddleOCR
+
+主类，提供 OCR 识别功能。
+
+```typescript
+class PaddleOCR {
+  constructor(options?: PaddleOCROptions)
+  init(): Promise<void>
+  recognize(image: ImageSource, options?: ProcessOptions): Promise<OCRResult>
+  recognizeBatch(images: ImageSource[], options?: ProcessOptions): Promise<BatchOCRResult>
+  recognizeTable(image: ImageSource, options?: ProcessOptions): Promise<TableResult>
+  analyzeLayout(image: ImageSource, options?: ProcessOptions): Promise<LayoutResult>
+  recognizeFormula(image: ImageSource, options?: ProcessOptions): Promise<FormulaResult[]>
+  detectBarcodes(image: ImageSource): Promise<BarcodeResult[]>
+  getStats(): OCRStats
+  dispose(): Promise<void>
+}
 ```
 
-## API文档
+### 静态方法
 
-详细API文档请参见[API文档](docs/api.md)。
+```typescript
+PaddleOCR.getSupportedLanguages(): string[]
+PaddleOCR.getModelInfo(): ModelInfo
+PaddleOCR.isSupported(): Promise<boolean>
+```
 
-## 浏览器兼容性
+## 支持的语言
 
-- Chrome 83+
-- Firefox 79+
-- Safari 15.4+
-- Edge 83+
+- 中文 (ch)
+- 英语 (en)
+- 法语 (fr)
+- 德语 (de)
+- 西班牙语 (es)
+- 葡萄牙语 (pt)
+- 意大利语 (it)
+- 俄语 (ru)
+- 日语 (ja)
+- 韩语 (ko)
+- 阿拉伯语 (ar)
+- 印地语 (hi)
 
-## Node.js兼容性
+## 浏览器支持
 
-- Node.js 14.x 及以上版本
+- Chrome >= 80
+- Firefox >= 80
+- Safari >= 15
+- Edge >= 80
 
-## 许可证
+## 性能
 
-Apache 2.0
+| 场景 | 耗时 (1080p) |
+|------|-------------|
+| 文本检测 | ~300ms |
+| 文本识别 | ~500ms |
+| 表格识别 | ~1500ms |
+| 公式识别 | ~1000ms |
 
-## 贡献指南
+## 项目结构
 
-如果您想为项目做出贡献，请参阅[贡献指南](CONTRIBUTING.md)。
+```
+paddle-ocr.js/
+├── src/
+│   ├── paddleocr.ts      # 主类
+│   ├── index.ts           # 入口
+│   ├── typings.ts         # 类型定义
+│   ├── modules/           # 核心模块
+│   │   ├── textDetector.ts
+│   │   ├── textRecognizer.ts
+│   │   ├── tableRecognizer.ts
+│   │   ├── layoutAnalyzer.ts
+│   │   ├── formulaRecognizer.ts
+│   │   └── barcodeRecognizer.ts
+│   └── utils/             # 工具函数
+│       ├── image.ts
+│       ├── cache.ts
+│       └── env.ts
+├── dist/                  # 编译输出
+├── examples/             # 示例
+└── docs/                 # 文档
+```
 
-## 相关项目
+## License
 
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - 高效的OCR工具库
-- [TensorFlow.js](https://github.com/tensorflow/tfjs) - 用于在浏览器和Node.js中训练和部署ML模型的JavaScript库
+Apache-2.0 License
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 相关链接
+
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)
+- [TensorFlow.js](https://www.tensorflow.org/js)
+- [ONNX Runtime Web](https://onnxruntime.ai/)

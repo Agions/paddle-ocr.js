@@ -20,7 +20,7 @@ import {
   ErrorCode,
 } from "./typings"
 
-import { loadImage, ImageData } from "./utils/image"
+import { loadImage, ImageData as OCRImageData } from "./utils/image"
 import { TextDetector } from "./modules/textDetector"
 import { TextRecognizer } from "./modules/textRecognizer"
 import { TableRecognizer } from "./modules/tableRecognizer"
@@ -442,7 +442,7 @@ class PaddleOCR {
   /**
    * 加载图像数据
    */
-  private async loadImageData(source: ImageSource): Promise<ImageData> {
+  private async loadImageData(source: ImageSource): Promise<OCRImageData> {
     return await loadImage(source)
   }
 
@@ -491,6 +491,9 @@ class PaddleOCR {
   /**
    * 获取支持的语言
    */
+  // 静态属性
+  public static version: string = "0.2.0"
+
   public static getSupportedLanguages(): string[] {
     return [
       "ch", // 中文

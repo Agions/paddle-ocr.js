@@ -4,6 +4,9 @@
 
 import type { Canvas, Image } from "canvas"
 
+// 前向声明
+class PaddleOCR {}
+
 // ==================== 基础类型 ====================
 
 /** 坐标点 */

@@ -1,9 +1,8 @@
 import PaddleOCR from "./paddleocr"
-import { version } from "../package.json"
 import { OCRResult, TableResult, LayoutResult, ProcessOptions } from "./typings"
 
 // 添加版本信息
-PaddleOCR.version = version
+PaddleOCR.version = "0.2.0"
 
 // Worker上下文
 const ctx: Worker = self as any

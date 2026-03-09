@@ -366,6 +366,8 @@ export class LayoutAnalyzer {
 
     return {
       regions: processedRegions,
+      pageWidth: image.width,
+      pageHeight: image.height,
     }
   }
 

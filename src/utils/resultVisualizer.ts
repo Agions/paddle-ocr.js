@@ -1212,3 +1212,30 @@ export interface VisualizerOptions {
   enableAccessibility?: boolean
   theme?: "default" | "dark" | "light" | "highContrast"
 }
+
+// 简化版可视化组件 - 轻量级
+export class LightVisualizer {
+  private container: HTMLElement
+  private options: Partial<VisualizerOptions>
+
+  constructor(container: string | HTMLElement, options?: Partial<VisualizerOptions>) {
+    this.container = typeof container === "string" 
+      ? document.getElementById(container)! 
+      : container
+    this.options = options || {}
+  }
+
+  render(result: OCRResult | TableResult | LayoutResult): void {
+    // 简单渲染实现
+    const div = document.createElement("div")
+    div.className = "paddleocr-light-result"
+    div.textContent = JSON.stringify(result, null, 2)
+    this.container.innerHTML = ""
+    this.container.appendChild(div)
+  }
+
+  clear(): void {
+    this.container.innerHTML = ""
+  }
+}
+

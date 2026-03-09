@@ -414,7 +414,41 @@ export class TableRecognizer {
       structure: structureResult,
       cells: cellContents,
       html,
+      markdown: this.convertToMarkdown(structureResult, cellContents),
     }
+  }
+
+  /**
+   * 将表格转换为 Markdown 格式
+   */
+  private convertToMarkdown(structureResult: any, cellContents: any[]): string {
+    const rowCount = structureResult.rows - 1
+    const colCount = structureResult.cols - 1
+
+    // 创建表头
+    let markdown = "|"
+    for (let c = 0; c < colCount; c++) {
+      markdown += ` 列${c + 1} |`
+    }
+    markdown += "\n|"
+
+    // 分隔行
+    for (let c = 0; c < colCount; c++) {
+      markdown += " --- |"
+    }
+    markdown += "\n"
+
+    // 数据行
+    for (let r = 0; r < rowCount; r++) {
+      markdown += "|"
+      for (let c = 0; c < colCount; c++) {
+        const cell = cellContents.find((cell) => cell.row === r && cell.col === c)
+        markdown += ` ${cell?.text || ""} |`
+      }
+      markdown += "\n"
+    }
+
+    return markdown
   }
 
   /**

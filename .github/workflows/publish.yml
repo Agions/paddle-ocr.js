@@ -64,4 +64,4 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Show published version
-        run: echo "Published version: $(npm pkg get version)"
+        run: node -p "require('./package.json').version"

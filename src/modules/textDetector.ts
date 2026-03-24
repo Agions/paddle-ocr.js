@@ -1,5 +1,5 @@
 import { PaddleOCROptions, TextBox, Point } from "../typings"
-import { ImageData } from "../utils/image"
+import { OCRImageData as ImageData } from "../utils/image"
 
 /**
  * 文本检测类

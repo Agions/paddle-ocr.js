@@ -11,6 +11,8 @@ import {
   Point,
 } from "../typings"
 
+import { OCRImageData as ImageData } from "../utils/image"
+
 export class FormulaRecognizer {
   private options: PaddleOCROptions
   private formulaOptions: FormulaRecognitionOptions

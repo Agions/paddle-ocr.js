@@ -4,6 +4,7 @@
  */
 
 import { PaddleOCROptions, BarcodeResult, BarcodeType } from "../typings"
+import { OCRImageData as ImageData } from "../utils/image"
 
 export class BarcodeRecognizer {
   private options: PaddleOCROptions
@@ -110,7 +111,7 @@ export class BarcodeRecognizer {
   /**
    * 检测条码
    */
-  private async detectBarcodes(processed: any): Promise<any[]> {
+  private async detectBarcodes(_processed: any): Promise<any[]> {
     // 实际检测代码
     // 使用边缘检测+条码解码
     return []

@@ -1,5 +1,5 @@
 import { PaddleOCROptions, TextBox, TextLine } from "../typings"
-import { ImageData } from "../utils/image"
+import { OCRImageData as ImageData } from "../utils/image"
 
 /**
  * 文本识别类

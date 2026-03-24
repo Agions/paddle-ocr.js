@@ -1,5 +1,5 @@
 import { PaddleOCROptions, TableResult, Point } from "../typings"
-import { ImageData } from "../utils/image"
+import { OCRImageData as ImageData } from "../utils/image"
 import { TextDetector } from "./textDetector"
 import { TextRecognizer } from "./textRecognizer"
 
@@ -251,7 +251,7 @@ export class TableRecognizer {
     const { rows, cols, lines } = structureResult
     const { width, height } = processedImage
 
-    const cells = []
+    const cells: any[] = []
 
     // 根据行列和线条信息生成单元格
     for (let row = 0; row < rows - 1; row++) {
@@ -295,7 +295,7 @@ export class TableRecognizer {
       throw new Error("文本检测或识别模块未初始化")
     }
 
-    const cellsWithContent = []
+    const cellsWithContent: any[] = []
 
     for (const cell of cells) {
       // 从原图中裁剪出单元格区域

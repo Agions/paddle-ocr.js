@@ -1,5 +1,5 @@
 import { PaddleOCROptions, LayoutResult, Point } from "../typings"
-import { ImageData } from "../utils/image"
+import { OCRImageData as ImageData } from "../utils/image"
 import { TextDetector } from "./textDetector"
 import { TextRecognizer } from "./textRecognizer"
 import { TableRecognizer } from "./tableRecognizer"
@@ -308,7 +308,7 @@ export class LayoutAnalyzer {
       throw new Error("文本检测或识别模块未初始化")
     }
 
-    const processedRegions = []
+    const processedRegions: any[] = []
 
     // 处理每个区域
     for (const region of regions) {

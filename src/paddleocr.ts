@@ -20,7 +20,7 @@ import {
   ErrorCode,
 } from "./typings"
 
-import { loadImage, ImageData as OCRImageData } from "./utils/image"
+import { loadImage, OCRImageData as ImageData } from "./utils/image"
 import { TextDetector } from "./modules/textDetector"
 import { TextRecognizer } from "./modules/textRecognizer"
 import { TableRecognizer } from "./modules/tableRecognizer"
@@ -442,7 +442,7 @@ class PaddleOCR {
   /**
    * 加载图像数据
    */
-  private async loadImageData(source: ImageSource): Promise<OCRImageData> {
+  private async loadImageData(source: ImageSource): Promise<ImageData> {
     return await loadImage(source)
   }
 

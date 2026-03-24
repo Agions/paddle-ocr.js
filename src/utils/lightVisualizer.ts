@@ -289,7 +289,7 @@ export class LightVisualizer {
 
       // 触发选择事件
       if (typeof this.options.onSelect === "function") {
-        let selectedItem = null
+        let selectedItem: any = null
 
         if (this.mode === "text" && "textDetection" in this.result) {
           const box = this.result.textDetection[id]

@@ -4,7 +4,7 @@ import { isNode, isBrowser } from "./env"
 /**
  * 图像对象：统一处理浏览器和Node环境的图像
  */
-export interface ImageData {
+export interface OCRImageData {
   width: number
   height: number
   data: Uint8Array | Uint8ClampedArray
@@ -16,7 +16,7 @@ export interface ImageData {
  * 加载图像
  * @param source 图像源
  */
-export async function loadImage(source: ImageSource): Promise<ImageData> {
+export async function loadImage(source: ImageSource): Promise<OCRImageData> {
   if (isNode()) {
     return loadImageNode(source)
   } else if (isBrowser()) {
@@ -29,8 +29,9 @@ export async function loadImage(source: ImageSource): Promise<ImageData> {
 /**
  * 在Node.js环境中加载图像
  */
-async function loadImageNode(source: ImageSource): Promise<ImageData> {
+async function loadImageNode(source: ImageSource): Promise<OCRImageData> {
   // 在Node.js环境中，使用canvas包处理图像
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { createCanvas, loadImage } = require("canvas")
 
   let img
@@ -61,7 +62,7 @@ async function loadImageNode(source: ImageSource): Promise<ImageData> {
 /**
  * 在浏览器环境中加载图像
  */
-async function loadImageBrowser(source: ImageSource): Promise<ImageData> {
+async function loadImageBrowser(source: ImageSource): Promise<OCRImageData> {
   // 处理HTMLImageElement
   if (source instanceof HTMLImageElement) {
     if (!source.complete) {
@@ -156,10 +157,10 @@ async function loadImageBrowser(source: ImageSource): Promise<ImageData> {
  * @param preserveAspectRatio 是否保持宽高比
  */
 export function preprocessImage(
-  imageData: ImageData,
+  imageData: OCRImageData,
   maxSideLen: number = 960,
   preserveAspectRatio: boolean = true
-): ImageData {
+): OCRImageData {
   // 性能优化：如果图像尺寸已经小于最大边长，则不调整大小
   if (imageData.width <= maxSideLen && imageData.height <= maxSideLen) {
     return imageData
@@ -195,7 +196,8 @@ export function preprocessImage(
     canvas = document.createElement("canvas")
     ctx = canvas.getContext("2d") as CanvasRenderingContext2D
   } else {
-    const { createCanvas } = require("canvas")
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { createCanvas } = require("canvas")
     canvas = createCanvas(targetWidth, targetHeight)
     ctx = canvas.getContext("2d") as CanvasRenderingContext2D
   }
@@ -256,7 +258,7 @@ export function preprocessImage(
  * @param toRange01 是否归一化到[0,1]区间，默认为[-1,1]区间
  */
 export function normalizeImage(
-  imageData: ImageData,
+  imageData: OCRImageData,
   toRange01: boolean = false
 ): Float32Array {
   const { width, height, data } = imageData
@@ -284,7 +286,7 @@ export function normalizeImage(
  * @param channelOrder 通道顺序，如'RGB'或'BGR'
  */
 export function reorderChannels(
-  imageData: ImageData,
+  imageData: OCRImageData,
   channelOrder: "RGB" | "BGR" = "RGB"
 ): Uint8Array {
   const { width, height, data } = imageData
@@ -308,14 +310,14 @@ export function reorderChannels(
  * 图像缓存系统 - 缓存处理过的图像以提高性能
  */
 class ImageCache {
-  private cache = new Map<string, ImageData>()
+  private cache = new Map<string, OCRImageData>()
   private maxSize: number
 
   constructor(maxSize: number = 10) {
     this.maxSize = maxSize
   }
 
-  get(key: string): ImageData | undefined {
+  get(key: string): OCRImageData | undefined {
     return this.cache.get(key)
   }
 

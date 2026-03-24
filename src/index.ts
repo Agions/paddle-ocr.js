@@ -43,7 +43,7 @@ export { BarcodeRecognizer } from "./modules/barcodeRecognizer"
 
 // 导出工具
 export { ModelCache, ImageCache, ResultCache } from "./utils/cache"
-export { loadImage, ImageData } from "./utils/image"
+export { loadImage, OCRImageData as ImageData } from "./utils/image"
 export { isNode, isBrowser } from "./utils/env"
 export { ResultVisualizer, LightVisualizer } from "./utils/resultVisualizer"
 

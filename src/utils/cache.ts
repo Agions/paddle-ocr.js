@@ -3,7 +3,7 @@
  * 提供模型和结果的缓存功能
  */
 
-import { PaddleOCROptions } from "../typings"
+import { OCRImageData as ImageData } from "./image"
 
 export interface CacheOptions {
   /** 缓存大小限制 (MB) */

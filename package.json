@@ -24,8 +24,7 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "docs": "typedoc",
-    "prepublishOnly": "npm run build && npm run test"
+    "docs": "typedoc"
   },
   "keywords": [
     "ocr",

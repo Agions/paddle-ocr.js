@@ -1,5 +1,6 @@
 import { PaddleOCROptions, TextBox, TextLine } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
+import { ImageProcessor } from "../utils/imageProcessor"
 
 /**
  * 文本识别类
@@ -240,83 +241,24 @@ export class TextRecognizer {
     image: ImageData,
     points: { x: number; y: number }[]
   ): ImageData {
-    // 计算裁剪区域的边界
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = 0,
-      maxY = 0
-
-    for (const point of points) {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
-    }
-
-    // 确保坐标在图像范围内
-    minX = Math.max(0, Math.floor(minX))
-    minY = Math.max(0, Math.floor(minY))
-    maxX = Math.min(image.width - 1, Math.ceil(maxX))
-    maxY = Math.min(image.height - 1, Math.ceil(maxY))
-
-    const width = maxX - minX + 1
-    const height = maxY - minY + 1
-
-    // 创建一个新的图像数据来存储裁剪区域
-    const regionData = new Uint8Array(width * height * 4)
-
-    // 从原图复制像素
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const srcIdx = ((minY + y) * image.width + (minX + x)) * 4
-        const dstIdx = (y * width + x) * 4
-
-        regionData[dstIdx] = image.data[srcIdx] // R
-        regionData[dstIdx + 1] = image.data[srcIdx + 1] // G
-        regionData[dstIdx + 2] = image.data[srcIdx + 2] // B
-        regionData[dstIdx + 3] = image.data[srcIdx + 3] // A
-      }
-    }
-
-    return {
-      width,
-      height,
-      data: regionData,
-    }
+    return ImageProcessor.cropRegion(image, points)
   }
 
   /**
    * 图像预处理
    */
   private preprocess(image: ImageData): any {
-    // 在实际实现中，这里会进行图像归一化、调整大小等预处理
-    // 简化处理，返回原始图像
-    return {
-      data: new Float32Array(image.data),
-      width: image.width,
-      height: image.height,
-    }
+    return ImageProcessor.preprocess(image)
   }
 
   /**
    * 解码识别结果为文本
    */
   private decodeText(recognitionResult: any): string {
-    // 在实际实现中，这里会将模型输出转换为文本
-    // 模拟几个简单的识别结果
-    const sampleTexts = [
-      "示例文本1",
-      "Hello World",
-      "飞桨OCR",
-      "深度学习",
-      "PaddleOCR",
-      "文字识别",
-      "人工智能",
-      "AI技术",
-      "计算机视觉",
-    ]
-
-    return sampleTexts[Math.floor(Math.random() * sampleTexts.length)]
+    // TODO: 实现真实的CTC解码/注意力解码逻辑
+    // 当前为占位实现，应该根据 vocabulary 和模型输出张量解码
+    // 示例: return this.ctcDecode(recognitionResult.probabilities, this.vocab)
+    return ""
   }
 
   /**

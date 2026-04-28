@@ -12,6 +12,7 @@ import {
 } from "../typings"
 
 import { OCRImageData as ImageData } from "../utils/image"
+import { ImageProcessor } from "../utils/imageProcessor"
 
 export class FormulaRecognizer {
   private options: PaddleOCROptions
@@ -93,7 +94,6 @@ export class FormulaRecognizer {
    * 图像预处理
    */
   private preprocess(imageData: ImageData): any {
-    // 图像归一化和缩放
     const { width, height } = imageData
     const maxSize = this.options.maxSideLen || 960
 
@@ -108,8 +108,9 @@ export class FormulaRecognizer {
       newHeight = maxSize
     }
 
+    const processed = ImageProcessor.preprocess(imageData)
     return {
-      data: new Float32Array(imageData.data),
+      ...processed,
       width: newWidth,
       height: newHeight,
       scaleX: newWidth / width,

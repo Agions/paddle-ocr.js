@@ -1,5 +1,6 @@
 import { PaddleOCROptions, TableResult, Point } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
+import { ImageProcessor } from "../utils/imageProcessor"
 import { TextDetector } from "./textDetector"
 import { TextRecognizer } from "./textRecognizer"
 
@@ -134,13 +135,7 @@ export class TableRecognizer {
    * 图像预处理
    */
   private preprocessImage(image: ImageData): any {
-    // 在实际实现中，这里会进行图像归一化、缩放等预处理
-    // 简化处理，返回原始图像
-    return {
-      data: new Float32Array(image.data),
-      width: image.width,
-      height: image.height,
-    }
+    return ImageProcessor.preprocess(image)
   }
 
   /**
@@ -326,54 +321,27 @@ export class TableRecognizer {
    * 从图像中裁剪区域
    */
   private cropRegion(image: ImageData, points: Point[]): ImageData {
-    // 计算裁剪区域的边界
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = 0,
-      maxY = 0
-
-    for (const point of points) {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
-    }
-
-    // 确保坐标在图像范围内
-    minX = Math.max(0, Math.floor(minX))
-    minY = Math.max(0, Math.floor(minY))
-    maxX = Math.min(image.width - 1, Math.ceil(maxX))
-    maxY = Math.min(image.height - 1, Math.ceil(maxY))
-
-    const width = maxX - minX + 1
-    const height = maxY - minY + 1
-
-    // 创建一个新的图像数据来存储裁剪区域
-    const regionData = new Uint8Array(width * height * 4)
-
-    // 从原图复制像素
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const srcIdx = ((minY + y) * image.width + (minX + x)) * 4
-        const dstIdx = (y * width + x) * 4
-
-        regionData[dstIdx] = image.data[srcIdx] // R
-        regionData[dstIdx + 1] = image.data[srcIdx + 1] // G
-        regionData[dstIdx + 2] = image.data[srcIdx + 2] // B
-        regionData[dstIdx + 3] = image.data[srcIdx + 3] // A
-      }
-    }
-
-    return {
-      width,
-      height,
-      data: regionData,
-    }
+    return ImageProcessor.cropRegion(image, points)
   }
 
   /**
    * 生成最终表格结果
    */
+  /**
+   * HTML 特殊字符转义
+   */
+  private escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#x27;",
+      "/": "&#x2F;",
+    }
+    return text.replace(/[&<>"'/]/g, (char) => map[char] || char)
+  }
+
   private generateTableResult(
     structureResult: any,
     cellContents: any[]
@@ -401,7 +369,8 @@ export class TableRecognizer {
           const colspanAttr =
             cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ""
 
-          html += `<td${rowspanAttr}${colspanAttr}>${cell.text || ""}</td>`
+          const safeText = this.escapeHtml(cell.text || "")
+          html += `<td${rowspanAttr}${colspanAttr}>${safeText}</td>`
         }
       }
 

@@ -45,7 +45,9 @@ export { BarcodeRecognizer } from "./modules/barcodeRecognizer"
 export { ModelCache, ImageCache, ResultCache } from "./utils/cache"
 export { loadImage, OCRImageData as ImageData } from "./utils/image"
 export { isNode, isBrowser } from "./utils/env"
-export { ResultVisualizer, LightVisualizer } from "./utils/resultVisualizer"
+export { ResultVisualizer } from "./utils/resultVisualizer"
+export { LightVisualizer } from "./utils/lightVisualizer"
+export { ImageProcessor } from "./utils/imageProcessor"
 
 // 导出主类
 export { PaddleOCR }

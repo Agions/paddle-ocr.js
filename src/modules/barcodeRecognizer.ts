@@ -5,6 +5,7 @@
 
 import { PaddleOCROptions, BarcodeResult, BarcodeType } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
+import { ImageProcessor } from "../utils/imageProcessor"
 
 export class BarcodeRecognizer {
   private options: PaddleOCROptions
@@ -99,8 +100,9 @@ export class BarcodeRecognizer {
       newHeight = maxSize
     }
 
+    const processed = ImageProcessor.preprocess(imageData)
     return {
-      data: new Float32Array(imageData.data),
+      ...processed,
       width: newWidth,
       height: newHeight,
       originalWidth: width,

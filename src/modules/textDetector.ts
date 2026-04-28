@@ -1,5 +1,6 @@
 import { PaddleOCROptions, TextBox, Point } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
+import { ImageProcessor } from "../utils/imageProcessor"
 
 /**
  * 文本检测类
@@ -143,13 +144,7 @@ export class TextDetector {
    * 图像预处理
    */
   private preprocess(image: ImageData): any {
-    // 在实际实现中，这里会进行图像归一化、缩放等预处理
-    // 简化处理，返回原始图像
-    return {
-      data: new Float32Array(image.data),
-      width: image.width,
-      height: image.height,
-    }
+    return ImageProcessor.preprocess(image)
   }
 
   /**
@@ -160,33 +155,11 @@ export class TextDetector {
     originalWidth: number,
     originalHeight: number
   ): TextBox[] {
-    // 在实际实现中，这里会将模型输出转换为文本框坐标
-    // 仿真几个文本框作为示例
-    const boxes: TextBox[] = []
-
-    // 创建一些假文本框作为示例
-    for (let i = 0; i < 5; i++) {
-      const x1 = Math.random() * 0.8 * originalWidth
-      const y1 = Math.random() * 0.8 * originalHeight
-      const width = Math.random() * 0.2 * originalWidth + 0.1 * originalWidth
-      const height =
-        Math.random() * 0.1 * originalHeight + 0.05 * originalHeight
-
-      const box: TextBox = {
-        id: i,
-        score: Math.random() * 0.5 + 0.5, // 0.5-1.0之间的随机分数
-        box: [
-          { x: x1, y: y1 },
-          { x: x1 + width, y: y1 },
-          { x: x1 + width, y: y1 + height },
-          { x: x1, y: y1 + height },
-        ],
-      }
-
-      boxes.push(box)
-    }
-
-    return boxes
+    // TODO: 实现真实的 DBNet/EAST 后处理逻辑
+    // 应该解析模型输出张量，应用阈值和轮廓分析提取文本框
+    // 示例: const binaryMap = predictions[0].dataSync()
+    //        const boxes = this.dbPostprocess(binaryMap, originalWidth, originalHeight)
+    return []
   }
 
   /**

@@ -2,7 +2,12 @@
  * PaddleOCR-JS 增强版 - 类型定义
  */
 
-import type { Canvas, Image } from "canvas"
+// canvas 包为可选依赖，在浏览器环境不一定可用
+// 声明本地类型以避免强制依赖导入失败
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type CanvasImage = any
+}
 
 // 前向声明
 class PaddleOCR {}
@@ -290,7 +295,7 @@ export type ImageSource =
   | HTMLCanvasElement
   | HTMLVideoElement
   | ImageData
-  | Image
+  | CanvasImage
   | string // URL 或文件路径
   | Uint8Array
   | ArrayBuffer

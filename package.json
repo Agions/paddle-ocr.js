@@ -51,8 +51,10 @@
   "dependencies": {
     "@tensorflow/tfjs": "^4.11.0",
     "@tensorflow/tfjs-backend-wasm": "^4.11.0",
-    "canvas": "^2.11.2",
     "onnxruntime-web": "^1.16.0"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.11.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",

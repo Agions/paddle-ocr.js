@@ -134,9 +134,9 @@ export class ModelCache<T = any> {
     totalHits: number
   } {
     let totalHits = 0
-    for (const entry of this.cache.values()) {
+    Array.from(this.cache.values()).forEach((entry) => {
       totalHits += entry.hits
-    }
+    })
 
     const hitCount = Array.from(this.cache.values()).filter(
       (e) => e.hits > 0
@@ -169,12 +169,12 @@ export class ModelCache<T = any> {
     let oldestKey: string | null = null
     let oldestTime = Date.now()
 
-    for (const [key, entry] of this.cache.entries()) {
+    Array.from(this.cache.entries()).forEach(([key, entry]) => {
       if (entry.timestamp < oldestTime) {
         oldestTime = entry.timestamp
         oldestKey = key
       }
-    }
+    })
 
     if (oldestKey) {
       const entry = this.cache.get(oldestKey)

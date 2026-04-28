@@ -7,20 +7,42 @@ PaddleOCR.version = "0.2.0"
 // Worker上下文
 const ctx: Worker = self as any
 
+// 全局OCR实例（复用，避免每次请求都创建新实例）
+let ocrInstance: PaddleOCR | null = null
+let ocrOptions: any = null
+
+/**
+ * 获取或创建OCR实例
+ */
+async function getOCRInstance(options?: any): Promise<PaddleOCR> {
+  // 如果选项变化，需要重新初始化
+  if (ocrInstance && ocrOptions && JSON.stringify(ocrOptions) === JSON.stringify(options)) {
+    return ocrInstance
+  }
+
+  // 销毁旧实例
+  if (ocrInstance) {
+    await ocrInstance.dispose()
+    ocrInstance = null
+  }
+
+  // 创建新实例
+  ocrOptions = options
+  ocrInstance = new PaddleOCR(options)
+  await ocrInstance.init()
+  return ocrInstance
+}
+
 // 处理消息
 ctx.addEventListener("message", async (event) => {
   const { type, id, data } = event.data
 
   try {
     let result: OCRResult | TableResult | LayoutResult | null = null
-    let ocr: PaddleOCR | null = null
 
     // 初始化OCR
     if (type === "init") {
-      ocr = new PaddleOCR(data.options)
-      await ocr.init()
-
-      // 返回初始化成功消息
+      await getOCRInstance(data.options)
       ctx.postMessage({
         id,
         type: "init:success",
@@ -29,9 +51,8 @@ ctx.addEventListener("message", async (event) => {
       return
     }
 
-    // 创建OCR实例
-    ocr = new PaddleOCR(data.options)
-    await ocr.init()
+    // 获取复用的OCR实例
+    const ocr = await getOCRInstance(data.options)
 
     // 根据操作类型执行不同的OCR任务
     switch (type) {
@@ -56,9 +77,6 @@ ctx.addEventListener("message", async (event) => {
       default:
         throw new Error(`不支持的操作类型: ${type}`)
     }
-
-    // 销毁OCR实例
-    await ocr.dispose()
 
     // 返回结果
     ctx.postMessage({

@@ -29,6 +29,7 @@ import { FormulaRecognizer } from "./modules/formulaRecognizer"
 import { BarcodeRecognizer } from "./modules/barcodeRecognizer"
 import { ImageCache, ResultCache } from "./utils/cache"
 import { isNode, isBrowser } from "./utils/env"
+import { ImageProcessor } from "./utils/imageProcessor"
 
 /**
  * PaddleOCR 主类
@@ -257,6 +258,35 @@ class PaddleOCR {
       this.updateProgress(10, "加载图像")
       const imageData = await this.loadImageData(image)
 
+      // 生成缓存键（基于图像哈希 + 选项）
+      // 确保传入正确的类型（Uint8ClampedArray 转换为 Uint8Array）
+      const imageHashKey = ImageProcessor.generateCacheKey(
+        imageData.data instanceof Uint8ClampedArray
+          ? new Uint8Array(imageData.data.buffer)
+          : imageData.data
+      )
+      const cacheKey = this.resultCache
+        ? ResultCache.generateKey(imageHashKey, {
+            mode: options?.mode || "text",
+            threshold: this.options.threshold,
+            language:
+              typeof this.options.language === "string"
+                ? this.options.language
+                : "ch",
+          })
+        : null
+
+      // 检查结果缓存
+      if (cacheKey && this.resultCache) {
+        const cached = this.resultCache.get(cacheKey)
+        if (cached) {
+          this.stats.cacheHits++
+          this.stats.successfulRequests++
+          return cached as OCRResult
+        }
+      }
+      this.stats.cacheMisses++
+
       // 文本检测
       let textBoxes: any[] = []
       if (this.options.enableDetection && this.detector) {
@@ -287,6 +317,11 @@ class PaddleOCR {
         },
         imageWidth: imageData.width,
         imageHeight: imageData.height,
+      }
+
+      // 存入结果缓存
+      if (cacheKey && this.resultCache) {
+        this.resultCache.set(cacheKey, result)
       }
 
       return result
@@ -443,7 +478,30 @@ class PaddleOCR {
    * 加载图像数据
    */
   private async loadImageData(source: ImageSource): Promise<ImageData> {
-    return await loadImage(source)
+    // 检查图像缓存
+    if (this.imageCache && typeof source === "string") {
+      const cacheKey = ImageCache.generateKey(source, {
+        width: this.options.maxSideLen,
+        height: this.options.maxSideLen,
+      })
+      const cached = this.imageCache.get(cacheKey)
+      if (cached) {
+        return cached
+      }
+    }
+
+    const imageData = await loadImage(source)
+
+    // 存入图像缓存
+    if (this.imageCache && typeof source === "string") {
+      const cacheKey = ImageCache.generateKey(source, {
+        width: imageData.width,
+        height: imageData.height,
+      })
+      this.imageCache.set(cacheKey, imageData)
+    }
+
+    return imageData
   }
 
   /**

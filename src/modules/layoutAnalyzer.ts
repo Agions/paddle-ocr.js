@@ -4,6 +4,7 @@ import { ImageProcessor } from "../utils/imageProcessor"
 import { TextDetector } from "./textDetector"
 import { TextRecognizer } from "./textRecognizer"
 import { TableRecognizer } from "./tableRecognizer"
+import { ModelLoader } from "../utils/ModelLoader"
 
 /**
  * 版面分析类
@@ -11,6 +12,7 @@ import { TableRecognizer } from "./tableRecognizer"
  */
 export class LayoutAnalyzer {
   private options: PaddleOCROptions
+  private modelLoader: ModelLoader
   private model: any = null
   private textDetector: TextDetector | null = null
   private textRecognizer: TextRecognizer | null = null
@@ -40,6 +42,7 @@ export class LayoutAnalyzer {
       // 确保版面分析所需的配置项
       enableLayout: true,
     }
+    this.modelLoader = new ModelLoader(this.options)
   }
 
   /**
@@ -51,14 +54,8 @@ export class LayoutAnalyzer {
     }
 
     try {
-      // 根据设置的后端选择模型加载方式
-      if (this.options.useTensorflow) {
-        await this.initTensorflowModel()
-      } else if (this.options.useONNX) {
-        await this.initONNXModel()
-      } else {
-        throw new Error("未指定模型后端")
-      }
+      // 使用 ModelLoader 统一加载模型
+      this.model = await this.modelLoader.loadLayoutModel()
 
       // 初始化文本检测和识别模块
       if (!this.textDetector) {
@@ -85,31 +82,7 @@ export class LayoutAnalyzer {
   }
 
   /**
-   * 初始化TensorFlow模型
-   */
-  private async initTensorflowModel(): Promise<void> {
-    // 实际实现中，这里会加载TFJS模型
-    const tf = require("@tensorflow/tfjs")
-    const modelPath = `${this.options.modelPath}/layout/model.json`
-
-    console.log(`加载版面分析模型: ${modelPath}`)
-    this.model = await tf.loadGraphModel(modelPath)
-  }
-
-  /**
-   * 初始化ONNX模型
-   */
-  private async initONNXModel(): Promise<void> {
-    // 实际实现中，这里会加载ONNX模型
-    const ort = require("onnxruntime-web")
-    const modelPath = `${this.options.modelPath}/layout/model.onnx`
-
-    console.log(`加载版面分析模型: ${modelPath}`)
-    this.model = await ort.InferenceSession.create(modelPath)
-  }
-
-  /**
-   * 分析图像版面布局
+   * 分析版面布局
    * @param image 输入图像
    */
   public async analyze(image: ImageData): Promise<LayoutResult> {
@@ -399,6 +372,9 @@ export class LayoutAnalyzer {
       this.textRecognizer = null
       this.tableRecognizer = null
       this.isInitialized = false
+
+      // 释放 ModelLoader
+      this.modelLoader.dispose()
     } catch (error) {
       console.error("释放版面分析资源失败:", error)
       throw error

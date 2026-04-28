@@ -5,6 +5,7 @@ import {
   LayoutResult,
   Point,
 } from "../typings"
+import * as Config from "../core/Constants"
 
 /**
  * OCR结果可视化组件
@@ -35,7 +36,7 @@ export class ResultVisualizer {
     const defaultOptions: VisualizerOptions = {
       width: 800,
       height: 600,
-      boxColor: "rgba(0, 0, 255, 0.5)",
+      boxColor: Config.VISUALIZATION_COLORS.TEXT_BOX,
       textColor: "#FFFFFF",
       backgroundColor: "rgba(0, 0, 0, 0.7)",
       fontSize: 14,
@@ -44,10 +45,10 @@ export class ResultVisualizer {
       showBoxId: true,
       interactive: true,
       autoResize: true,
-      highlightColor: "rgba(255, 255, 0, 0.5)",
+      highlightColor: Config.VISUALIZATION_COLORS.HIGHLIGHT,
       lineWidth: 2,
       enableAccessibility: true,
-      theme: "default",
+      theme: Config.THEMES.DEFAULT,
     }
 
     this.options = { ...defaultOptions, ...options }
@@ -98,7 +99,7 @@ export class ResultVisualizer {
     }
 
     // 应用主题
-    this.applyTheme(this.options.theme || "default")
+    this.applyTheme(this.options.theme || Config.THEMES.DEFAULT)
   }
 
   /**
@@ -252,7 +253,7 @@ export class ResultVisualizer {
         this.options.highlightColor = "rgba(255, 150, 0, 0.7)"
         break
       case "light":
-        this.options.boxColor = "rgba(0, 100, 255, 0.5)"
+        this.options.boxColor = Config.VISUALIZATION_COLORS.TEXT_BOX
         this.options.textColor = "#000000"
         this.options.backgroundColor = "rgba(255, 255, 255, 0.8)"
         this.options.highlightColor = "rgba(255, 200, 0, 0.6)"
@@ -575,13 +576,13 @@ export class ResultVisualizer {
       let regionColor = this.options.boxColor
       switch (region.type) {
         case "text":
-          regionColor = "rgba(0, 0, 255, 0.5)"
+          regionColor = Config.VISUALIZATION_COLORS.TEXT_BOX
           break
         case "title":
-          regionColor = "rgba(255, 0, 0, 0.5)"
+          regionColor = Config.VISUALIZATION_COLORS.TABLE_BOX
           break
         case "figure":
-          regionColor = "rgba(0, 255, 0, 0.5)"
+          regionColor = Config.VISUALIZATION_COLORS.LAYOUT_REGION
           break
         case "table":
           regionColor = "rgba(255, 165, 0, 0.5)"

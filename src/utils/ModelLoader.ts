@@ -1,5 +1,6 @@
 import { PaddleOCROptions } from "../typings"
 import { buildModelPath } from "./modelPath"
+import * as Config from "../core/Constants"
 
 /**
  * 统一的模型加载器
@@ -96,7 +97,7 @@ export class ModelLoader {
       return this.cache.get(cacheKey)
     }
 
-    const fullPath = `${this.options.modelPath || "./models"}/${modelPath}`
+    const fullPath = `${this.options.modelPath || Config.MODEL_PATHS.DEFAULT}/${modelPath}`
 
     console.log(`[ModelLoader] 加载自定义模型: ${fullPath}`)
 
@@ -147,7 +148,7 @@ export class ModelLoader {
     // 构建模型路径
     const extension = this.options.useTensorflow ? ".json" : ".onnx"
     const modelPath = buildModelPath({
-      modelPath: this.options.modelPath || "./models",
+      modelPath: this.options.modelPath || Config.MODEL_PATHS.DEFAULT,
       modelType: config.modelType,
       modelName: config.modelName,
       language: config.language,

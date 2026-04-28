@@ -96,7 +96,7 @@ export class ModelLoader {
       return this.cache.get(cacheKey)
     }
 
-    const fullPath = `${this.options.modelPath}/${modelPath}`
+    const fullPath = `${this.options.modelPath || "./models"}/${modelPath}`
 
     console.log(`[ModelLoader] 加载自定义模型: ${fullPath}`)
 
@@ -147,7 +147,7 @@ export class ModelLoader {
     // 构建模型路径
     const extension = this.options.useTensorflow ? ".json" : ".onnx"
     const modelPath = buildModelPath({
-      modelPath: this.options.modelPath,
+      modelPath: this.options.modelPath || "./models",
       modelType: config.modelType,
       modelName: config.modelName,
       language: config.language,

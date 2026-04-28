@@ -1,10 +1,37 @@
-import {
-  OCRResult,
-  TextBox,
-  TableResult,
-  LayoutResult,
-  Point,
-} from "../typings"
+import { OCRResult, TableResult, LayoutResult, Point } from "../typings"
+
+/**
+ * 轻量级可视化选项接口（简化）
+ */
+export interface LightVisualizerOptions {
+  width: number
+  height: number
+  color: string
+  textColor: string
+  bgColor: string
+  fontSize: number
+  lineWidth: number
+  responsive: boolean
+  optimizeForMobile: boolean
+  renderMode: "simple" | "list"
+  onSelect?: (id: number, item: any) => void
+}
+
+/**
+ * 默认可视化选项
+ */
+const DEFAULT_OPTIONS: LightVisualizerOptions = {
+  width: 300,
+  height: 200,
+  color: "#007bff",
+  textColor: "#ffffff",
+  bgColor: "rgba(0, 0, 0, 0.6)",
+  fontSize: 12,
+  lineWidth: 2,
+  responsive: true,
+  optimizeForMobile: true,
+  renderMode: "simple",
+}
 
 /**
  * 轻量级OCR结果可视化组件
@@ -20,34 +47,14 @@ export class LightVisualizer {
   private selectedId: number = -1
   private mode: "text" | "table" | "layout" = "text"
   private isReady: boolean = false
-  private maxBoxesToRender: number = 50 // 最大渲染框数量，提高性能
+  private maxBoxesToRender: number = 50
 
-  /**
-   * 创建轻量级OCR结果可视化组件
-   * @param container 容器元素或其ID
-   * @param options 可视化选项
-   */
   constructor(
     container: string | HTMLElement,
     options: Partial<LightVisualizerOptions> = {}
   ) {
-    // 默认选项
-    const defaultOptions: LightVisualizerOptions = {
-      width: 300,
-      height: 200,
-      color: "#007bff",
-      textColor: "#ffffff",
-      bgColor: "rgba(0, 0, 0, 0.6)",
-      fontSize: 12,
-      lineWidth: 2,
-      responsive: true,
-      optimizeForMobile: true,
-      renderMode: "simple",
-    }
+    this.options = { ...DEFAULT_OPTIONS, ...options }
 
-    this.options = { ...defaultOptions, ...options }
-
-    // 获取容器元素
     const containerEl =
       typeof container === "string"
         ? document.getElementById(container)
@@ -65,14 +72,12 @@ export class LightVisualizer {
     this.canvas.height = this.options.height
     this.canvas.style.width = "100%"
     this.canvas.style.maxWidth = "100%"
-
-    // 无障碍属性
     this.canvas.setAttribute("role", "img")
     this.canvas.setAttribute("aria-label", "OCR识别结果简易可视化")
 
     const ctx = this.canvas.getContext("2d", {
       alpha: true,
-      desynchronized: true, // 启用非同步渲染，提高性能
+      desynchronized: true,
     })
 
     if (!ctx) {
@@ -80,15 +85,10 @@ export class LightVisualizer {
     }
     this.ctx = ctx
 
-    // 添加到容器
     containerEl.appendChild(this.canvas)
 
     // 设置事件监听
-    if (!this.options.optimizeForMobile) {
-      this.canvas.addEventListener("click", this.handleClick.bind(this))
-    } else {
-      this.setupTouchEvents()
-    }
+    this.setupEventListeners()
 
     // 设置响应式支持
     if (this.options.responsive) {
@@ -197,7 +197,7 @@ export class LightVisualizer {
           listItem.style.fontWeight = "bold"
         }
 
-        listItem.textContent = `${region.type.toUpperCase()}`
+        listItem.textContent = region.type.toUpperCase()
         if (typeof region.content === "string") {
           listItem.textContent += `: ${region.content.slice(0, 30)}${
             region.content.length > 30 ? "..." : ""
@@ -214,6 +214,14 @@ export class LightVisualizer {
         listContainer.appendChild(listItem)
       })
     }
+  }
+
+  /**
+   * 设置事件监听器
+   */
+  private setupEventListeners(): void {
+    this.canvas.addEventListener("click", this.handleClick.bind(this))
+    this.setupTouchEvents()
   }
 
   /**
@@ -250,7 +258,7 @@ export class LightVisualizer {
    * 处理触摸结束事件
    */
   private handleTouchEnd(event: TouchEvent): void {
-    // 检查是否为简单点击（防止滚动误触）
+    // 检查是否为简单点击
     const timeDiff = Date.now() - this.lastTouchTime
 
     if (timeDiff < 300) {
@@ -322,14 +330,18 @@ export class LightVisualizer {
   /**
    * 查找点击位置下的框
    */
-  private findBoxAtPosition(x: number, y: number, items: any[]): number {
+  private findBoxAtPosition(
+    x: number,
+    y: number,
+    items: Array<{ box: Point[] }>
+  ): number {
     const { width, height } = this.canvas
     const scaleX = width / (this.image as HTMLImageElement).naturalWidth
     const scaleY = height / (this.image as HTMLImageElement).naturalHeight
 
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i]
-      const box = "box" in item ? item.box : []
+      const box = item.box
 
       if (!box || !Array.isArray(box) || box.length < 3) continue
 
@@ -382,7 +394,6 @@ export class LightVisualizer {
       })
       observer.observe(this.container)
     } else {
-      // 兼容性处理
       window.addEventListener("resize", () => {
         this.resizeCanvas()
         if (this.isReady) {
@@ -423,7 +434,6 @@ export class LightVisualizer {
 
   /**
    * 加载图像
-   * @param image 图像源
    */
   public async loadImage(
     image: string | HTMLImageElement | HTMLCanvasElement
@@ -457,7 +467,6 @@ export class LightVisualizer {
 
   /**
    * 设置OCR结果
-   * @param result OCR结果
    */
   public setResult(result: OCRResult | TableResult | LayoutResult): void {
     this.result = result
@@ -471,7 +480,6 @@ export class LightVisualizer {
 
   /**
    * 设置渲染模式
-   * @param mode 模式：text, table 或 layout
    */
   public setMode(mode: "text" | "table" | "layout"): void {
     this.mode = mode
@@ -506,6 +514,11 @@ export class LightVisualizer {
       } else if (this.mode === "layout" && "regions" in this.result) {
         this.renderLayout(this.result)
       }
+    }
+
+    // 更新列表视图
+    if (this.options.renderMode === "list") {
+      this.updateResultListView()
     }
   }
 
@@ -701,7 +714,6 @@ export class LightVisualizer {
 
   /**
    * 更新选项
-   * @param options 新选项
    */
   public updateOptions(options: Partial<LightVisualizerOptions>): void {
     this.options = { ...this.options, ...options }
@@ -771,21 +783,4 @@ export class LightVisualizer {
     this.result = null
     this.isReady = false
   }
-}
-
-/**
- * 轻量级可视化选项接口
- */
-export interface LightVisualizerOptions {
-  width: number
-  height: number
-  color: string
-  textColor: string
-  bgColor: string
-  fontSize: number
-  lineWidth: number
-  responsive: boolean
-  optimizeForMobile: boolean
-  renderMode: "simple" | "list" | "full"
-  onSelect?: (id: number, item: any) => void
 }

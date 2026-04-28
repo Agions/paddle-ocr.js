@@ -1,6 +1,7 @@
 import { PaddleOCROptions, TextBox, Point } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
 import { ImageProcessor } from "../utils/imageProcessor"
+import { ModelLoader } from "../utils/ModelLoader"
 
 /**
  * 文本检测类
@@ -8,6 +9,7 @@ import { ImageProcessor } from "../utils/imageProcessor"
  */
 export class TextDetector {
   private options: PaddleOCROptions
+  private modelLoader: ModelLoader
   private model: any = null
   private isInitialized = false
 
@@ -17,6 +19,7 @@ export class TextDetector {
    */
   constructor(options: PaddleOCROptions) {
     this.options = options
+    this.modelLoader = new ModelLoader(options)
   }
 
   /**
@@ -28,48 +31,13 @@ export class TextDetector {
     }
 
     try {
-      // 根据设置的后端选择模型加载方式
-      if (this.options.useTensorflow) {
-        await this.initTensorflowModel()
-      } else if (this.options.useONNX) {
-        await this.initONNXModel()
-      } else {
-        throw new Error("未指定模型后端")
-      }
-
+      // 使用 ModelLoader 统一加载模型
+      this.model = await this.modelLoader.loadDetectionModel()
       this.isInitialized = true
     } catch (error) {
       console.error("文本检测模型初始化失败:", error)
       throw error
     }
-  }
-
-  /**
-   * 初始化TensorFlow模型
-   */
-  private async initTensorflowModel(): Promise<void> {
-    // 实际实现中，这里会加载TFJS模型
-    const tf = require("@tensorflow/tfjs")
-    const modelPath = `${
-      this.options.modelPath
-    }/det_${this.options.detectionModel?.toLowerCase()}/model.json`
-
-    console.log(`加载文本检测模型: ${modelPath}`)
-    this.model = await tf.loadGraphModel(modelPath)
-  }
-
-  /**
-   * 初始化ONNX模型
-   */
-  private async initONNXModel(): Promise<void> {
-    // 实际实现中，这里会加载ONNX模型
-    const ort = require("onnxruntime-web")
-    const modelPath = `${
-      this.options.modelPath
-    }/det_${this.options.detectionModel?.toLowerCase()}/model.onnx`
-
-    console.log(`加载文本检测模型: ${modelPath}`)
-    this.model = await ort.InferenceSession.create(modelPath)
   }
 
   /**
@@ -171,5 +139,8 @@ export class TextDetector {
     }
     this.model = null
     this.isInitialized = false
+
+    // 释放 ModelLoader
+    this.modelLoader.dispose()
   }
 }

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.0.0] - 2026-04-28
+## [0.3.0] - 2026-04-28
 
 ### 🎉 Major Release - OH-NO 6-Step Systematic Refactoring Complete
 
@@ -219,10 +219,16 @@ Special thanks to the systematic approach that made this massive refactor possib
 
 ---
 
-## [4.0.0] - Previous Releases
+## [0.2.0] - Previous Releases
 
-- Initial OCR functionality
+- Enhanced visualization features
 - Basic text detection and recognition
+- Early module structure
+
+## [0.1.0] - Initial Release
+
+- Basic OCR functionality  
+- Initial text detection and recognition
 - WebAssembly support
 - Early visualization features
 
@@ -230,7 +236,7 @@ Special thanks to the systematic approach that made this massive refactor possib
 
 ### Major Evolution Path:
 ```
-v4.0.0 → → → v5.0.0 (Enterprise-Grade Architecture)
+v0.2.0 → → → v0.3.0 (Enterprise-Grade Architecture)
   ↓
   Monolithic Codebase → Modular System
   ↓
@@ -243,9 +249,9 @@ v4.0.0 → → → v5.0.0 (Enterprise-Grade Architecture)
 
 ---
 
-**Upgrade Recommendation**: Strongly recommended for all users. This release provides significant improvements in maintainability, performance, and extensibility with guaranteed backward compatibility.
+**Upgrade Recommendation**: Strongly recommended for all users. This release provides significant improvements in maintainability, performance, and extensibility with guaranteed backward compatibility from v0.2.0.
 
-**Support Status**: v5.0.0 is the current stable release with full support. Previous versions remain supported during transition period.
+**Support Status**: v0.3.0 is the current stable release with full support. Previous versions (v0.1.x, v0.2.x) remain supported during transition period.
 
 ---
 *For detailed migration instructions and breaking changes, see the individual Phase completion reports in the project documentation.*

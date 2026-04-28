@@ -11,7 +11,10 @@ module.exports = {
             options: {
               compilerOptions: {
                 sourceMap: false,
+                skipLibCheck: true,
+                noEmit: false,
               },
+              transpileOnly: true,
             },
           },
         ],

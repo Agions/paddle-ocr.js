@@ -64,8 +64,11 @@ export interface TableResult {
       bbox: Point[]
     }>
     bbox: Point[]
+    structure?: any
   }
   format?: "html" | "markdown" | "excel"
+  html?: string
+  markdown?: string
   duration: {
     preprocess: number
     detection: number
@@ -83,6 +86,9 @@ export interface LayoutResult {
     type: "text" | "table" | "figure" | "title" | "header" | "footer"
     bbox: Point[]
     confidence: number
+    box?: any
+    score?: number
+    content?: string
   }>
   duration: {
     preprocess: number
@@ -91,14 +97,26 @@ export interface LayoutResult {
   }
   imageWidth?: number
   imageHeight?: number
+  pageWidth?: number
+  pageHeight?: number
   originalImage?: CanvasImage
 }
+
+/** 公式类型 */
+export type FormulaType = "inline" | "block" | "inline_tex" | "block_tex" | "html"
+
+/** 条码类型 */
+export type BarcodeType = "qr" | "code128" | "code39" | "ean13" | "ean8" | "upca" | "upce" | string
 
 /** 公式识别结果 */
 export interface FormulaResult {
   formula: string
   type: "inline" | "block" | "inline_tex" | "block_tex" | "html"
   bbox: Point[]
+  latex?: string
+  tex?: string
+  html?: string
+  text?: string
   duration: {
     preprocess: number
     recognition: number
@@ -114,6 +132,8 @@ export interface BarcodeResult {
   barcode: string
   type: string
   bbox: Point[]
+  data?: string
+  format?: string
   duration: {
     preprocess: number
     detection: number
@@ -166,6 +186,7 @@ export interface BatchOCRResult {
   failCount: number
   failedImages: string[]
   totalDuration: number
+  averageDuration: number
 }
 
 /** 模型信息 */
@@ -201,6 +222,9 @@ export interface TableRecognitionOptions {
 export interface FormulaRecognitionOptions {
   type?: "auto" | "inline" | "block" | "inline_tex" | "block_tex" | "html"
   engine?: "mathpix" | "custom"
+  enableLatex?: boolean
+  enableMathML?: boolean
+  enableHTML?: boolean
 }
 
 /** 版面分析选项 */
@@ -284,6 +308,15 @@ export interface PaddleOCROptions {
     timeout?: number // ms
   }
 
+  // 向后兼容性支持
+  maxSideLen?: number // 已废弃，使用 performanceOptions 替代
+  enableCache?: boolean // 已废弃，使用 cacheOptions 替代
+  cacheSize?: number // 已废弃，使用 cacheOptions 替代
+  threshold?: number // 已废弃，使用 detectionThreshold 替代
+  batchSize?: number // 已废弃，使用 performanceOptions 替代
+  enableGPU?: boolean // 已废弃，使用 useWasm 替代
+  onProgress?: ProgressCallback // 已废弃，传递给方法调用
+
   // 调试配置
   debugOptions?: {
     verbose?: boolean
@@ -293,6 +326,16 @@ export interface PaddleOCROptions {
 }
 
 // ==================== 缓存类型 ====================
+
+/** 统计信息接口 */
+export interface OCRStats {
+  totalRequests: number
+  successfulRequests: number
+  failedRequests: number
+  averageDuration: number
+  cacheHits: number
+  cacheMisses: number
+}
 
 /** 缓存统计信息 */
 export interface CacheStats {
@@ -368,6 +411,7 @@ export enum ErrorCode {
   INIT_FAILED = 1007,
   RECOGNITION_FAILED = 1008,
   MEMORY_LIMIT_EXCEEDED = 1009,
+  NOT_INITIALIZED = 1010,
   UNKNOWN_ERROR = 9999
 }
 

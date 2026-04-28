@@ -11,7 +11,7 @@ import {
   BatchOCRResult,
   ProgressCallback,
   OCRStats,
-} from "../typings"
+} from "./typings"
 
 import { ServiceCoordinator } from "./core/ServiceCoordinator"
 import { ModelManager } from "./core/ModelManager"

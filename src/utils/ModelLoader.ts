@@ -82,6 +82,47 @@ export class ModelLoader {
   }
 
   /**
+   * 加载自定义模型（用于表格识别等特殊场景）
+   * @param modelType 模型类型
+   * @param modelPath 相对路径
+   * @param modelName 模型名称
+   */
+  async loadCustomModel(modelType: string, modelPath: string, modelName: string): Promise<any> {
+    const cacheKey = `${modelType}-${modelName}`
+
+    // 检查缓存
+    if (this.cache.has(cacheKey)) {
+      console.log(`[ModelLoader] 使用缓存的模型: ${cacheKey}`)
+      return this.cache.get(cacheKey)
+    }
+
+    const fullPath = `${this.options.modelPath}/${modelPath}`
+
+    console.log(`[ModelLoader] 加载自定义模型: ${fullPath}`)
+
+    try {
+      let model: any
+
+      if (this.options.useTensorflow) {
+        model = await this.loadTensorFlowModel(fullPath)
+      } else if (this.options.useONNX) {
+        model = await this.loadONNXModel(fullPath)
+      } else {
+        throw new Error("未指定模型后端")
+      }
+
+      // 缓存模型
+      this.cache.set(cacheKey, model)
+
+      console.log(`[ModelLoader] 模型加载成功: ${cacheKey}`)
+      return model
+    } catch (error) {
+      console.error(`[ModelLoader] 模型加载失败: ${fullPath}`, error)
+      throw error
+    }
+  }
+
+  /**
    * 统一的模型加载方法
    */
   private async loadModel(config: {

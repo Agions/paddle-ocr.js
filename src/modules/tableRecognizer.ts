@@ -3,6 +3,7 @@ import { OCRImageData as ImageData } from "../utils/image"
 import { ImageProcessor } from "../utils/imageProcessor"
 import { TextDetector } from "./textDetector"
 import { TextRecognizer } from "./textRecognizer"
+import { ModelLoader } from "../utils/ModelLoader"
 
 /**
  * 表格识别类
@@ -10,6 +11,7 @@ import { TextRecognizer } from "./textRecognizer"
  */
 export class TableRecognizer {
   private options: PaddleOCROptions
+  private modelLoader: ModelLoader
   private structureModel: any = null
   private cellDetector: any = null
   private textDetector: TextDetector | null = null
@@ -26,6 +28,7 @@ export class TableRecognizer {
       // 确保表格识别所需的配置项
       enableTable: true,
     }
+    this.modelLoader = new ModelLoader(this.options)
   }
 
   /**
@@ -37,14 +40,17 @@ export class TableRecognizer {
     }
 
     try {
-      // 根据设置的后端选择模型加载方式
-      if (this.options.useTensorflow) {
-        await this.initTensorflowModels()
-      } else if (this.options.useONNX) {
-        await this.initONNXModels()
-      } else {
-        throw new Error("未指定模型后端")
-      }
+      // 使用 ModelLoader 加载表格模型
+      this.structureModel = await this.modelLoader.loadCustomModel(
+        "table-structure",
+        "table/structure/model",
+        "TableStructure"
+      )
+      this.cellDetector = await this.modelLoader.loadCustomModel(
+        "table-cell",
+        "table/cell/model",
+        "TableCellDetector"
+      )
 
       // 初始化文本检测和识别模块
       if (!this.textDetector) {
@@ -62,40 +68,6 @@ export class TableRecognizer {
       console.error("表格识别模型初始化失败:", error)
       throw error
     }
-  }
-
-  /**
-   * 初始化TensorFlow模型
-   */
-  private async initTensorflowModels(): Promise<void> {
-    const tf = require("@tensorflow/tfjs")
-
-    // 表格结构识别模型
-    const structureModelPath = `${this.options.modelPath}/table/structure/model.json`
-    console.log(`加载表格结构识别模型: ${structureModelPath}`)
-    this.structureModel = await tf.loadGraphModel(structureModelPath)
-
-    // 表格单元格检测模型
-    const cellDetectorPath = `${this.options.modelPath}/table/cell/model.json`
-    console.log(`加载表格单元格检测模型: ${cellDetectorPath}`)
-    this.cellDetector = await tf.loadGraphModel(cellDetectorPath)
-  }
-
-  /**
-   * 初始化ONNX模型
-   */
-  private async initONNXModels(): Promise<void> {
-    const ort = require("onnxruntime-web")
-
-    // 表格结构识别模型
-    const structureModelPath = `${this.options.modelPath}/table/structure/model.onnx`
-    console.log(`加载表格结构识别模型: ${structureModelPath}`)
-    this.structureModel = await ort.InferenceSession.create(structureModelPath)
-
-    // 表格单元格检测模型
-    const cellDetectorPath = `${this.options.modelPath}/table/cell/model.onnx`
-    console.log(`加载表格单元格检测模型: ${cellDetectorPath}`)
-    this.cellDetector = await ort.InferenceSession.create(cellDetectorPath)
   }
 
   /**
@@ -452,6 +424,9 @@ export class TableRecognizer {
       this.textDetector = null
       this.textRecognizer = null
       this.isInitialized = false
+
+      // 释放 ModelLoader
+      this.modelLoader.dispose()
     } catch (error) {
       console.error("释放表格识别资源失败:", error)
       throw error

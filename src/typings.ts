@@ -49,153 +49,181 @@ export interface OCRResult {
   }
   imageWidth?: number
   imageHeight?: number
-}
-
-/** 批量 OCR 结果 */
-export interface BatchOCRResult {
-  results: OCRResult[]
-  totalDuration: number
-  averageDuration: number
-}
-
-// ==================== 表格识别 ====================
-
-/** 表格单元格 */
-export interface TableCell {
-  box: Point[]
-  text: string
-  rowspan: number
-  colspan: number
-  row: number
-  col: number
-  score: number
+  angle?: number
+  rotatedImage?: CanvasImage
+  originalImage?: CanvasImage
 }
 
 /** 表格识别结果 */
 export interface TableResult {
-  structure: TableStructure
-  cells: TableCell[]
-  html: string
-  markdown: string
-  excel?: string // base64
-}
-
-/** 表格结构 */
-export interface TableStructure {
-  rows: number
-  cols: number
-  borders: {
-    top: number[]
-    bottom: number[]
-    left: number[]
-    right: number[]
+  table: {
+    cells: Array<{
+      row: number
+      col: number
+      content: string
+      bbox: Point[]
+    }>
+    bbox: Point[]
   }
+  format?: "html" | "markdown" | "excel"
+  duration: {
+    preprocess: number
+    detection: number
+    recognition: number
+    total: number
+  }
+  imageWidth?: number
+  imageHeight?: number
+  originalImage?: CanvasImage
 }
 
-// ==================== 公式识别 ====================
-
-/** 公式类型 */
-export type FormulaType = "inline" | "block" | "inline_tex" | "block_tex" | "html"
+/** 版面分析结果 */
+export interface LayoutResult {
+  regions: Array<{
+    type: "text" | "table" | "figure" | "title" | "header" | "footer"
+    bbox: Point[]
+    confidence: number
+  }>
+  duration: {
+    preprocess: number
+    detection: number
+    total: number
+  }
+  imageWidth?: number
+  imageHeight?: number
+  originalImage?: CanvasImage
+}
 
 /** 公式识别结果 */
 export interface FormulaResult {
-  type: FormulaType
-  latex?: string
-  tex?: string
-  html?: string
-  mathml?: string
-  text: string
-  box: Point[]
-  score: number
+  formula: string
+  type: "inline" | "block" | "inline_tex" | "block_tex" | "html"
+  bbox: Point[]
+  duration: {
+    preprocess: number
+    recognition: number
+    total: number
+  }
+  imageWidth?: number
+  imageHeight?: number
+  originalImage?: CanvasImage
 }
-
-/** 公式识别配置 */
-export interface FormulaRecognitionOptions {
-  enableLatex?: boolean
-  enableMathML?: boolean
-  enableHtml?: boolean
-  formulaType?: FormulaType
-}
-
-// ==================== 布局分析 ====================
-
-/** 布局元素类型 */
-export type LayoutType =
-  | "text"
-  | "title"
-  | "figure"
-  | "table"
-  | "formula"
-  | "chart"
-  | "header"
-  | "footer"
-  | "footnote"
-  | "equation"
-  | "annotation"
-  | "other"
-
-/** 布局元素 */
-export interface LayoutRegion {
-  type: LayoutType
-  box: Point[]
-  score: number
-  content?: string | TableResult | FormulaResult
-  children?: LayoutRegion[]
-}
-
-/** 布局分析结果 */
-export interface LayoutResult {
-  regions: LayoutRegion[]
-  pageWidth: number
-  pageHeight: number
-  direction?: "ltr" | "rtl" | "ttb"
-}
-
-// ==================== 条形码/二维码 ====================
-
-/** 条码类型 */
-export type BarcodeType =
-  | "qr_code"
-  | "data_matrix"
-  | "aztec"
-  | "codabar"
-  | "code_128"
-  | "code_39"
-  | "code_93"
-  | "ean_13"
-  | "ean_8"
-  | "itf"
-  | "pdf_417"
-  | "upc_a"
-  | "upc_e"
 
 /** 条码识别结果 */
 export interface BarcodeResult {
-  type: BarcodeType
-  data: string
-  format: string
-  box: Point[]
-  score: number
+  barcode: string
+  type: string
+  bbox: Point[]
+  duration: {
+    preprocess: number
+    detection: number
+    recognition: number
+    total: number
+  }
+  imageWidth?: number
+  imageHeight?: number
+  originalImage?: CanvasImage
 }
-
-// ==================== 水印检测 ====================
-
-/** 水印类型 */
-export type WatermarkType = "text" | "image" | "tiled" | "semi_transparent"
 
 /** 水印信息 */
 export interface WatermarkInfo {
-  type: WatermarkType
-  text?: string
-  imageUrl?: string
-  box: Point[]
-  opacity: number
-  position: "corner" | "center" | "tiled"
+  type: "watermark" | "logo"
+  position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center"
+  content?: string
+  confidence: number
 }
 
-// ==================== 配置选项 ====================
+// ==================== 处理选项 ====================
 
-/** PaddleOCR 配置 */
+/** 处理模式 */
+export type ProcessMode = "text" | "table" | "layout" | "formula" | "barcode" | "all"
+
+/** 语言选项 */
+export type LanguageOption = "ch" | "en" | "fr"
+
+/** 错误回调 */
+export type ErrorCallback = (error: Error, stage?: string) => void
+
+/** 进度回调 */
+export type ProgressCallback = (progress: number, message?: string) => void
+
+/** 处理选项 */
+export interface ProcessOptions {
+  mode?: ProcessMode
+  returnOriginalImage?: boolean
+  useAngle?: boolean
+  useDeskew?: boolean
+  visualize?: boolean // 可视化结果
+  outputPath?: string // 输出路径 (Node.js)
+  onProgress?: ProgressCallback
+  onError?: ErrorCallback
+}
+
+/** 批量处理结果 */
+export interface BatchOCRResult {
+  results: OCRResult[]
+  successCount: number
+  failCount: number
+  failedImages: string[]
+  totalDuration: number
+}
+
+/** 模型信息 */
+export interface ModelInfo {
+  detection: string[]
+  recognition: string[]
+  version: string
+}
+
+// ==================== 输入类型 ====================
+
+/** 支持的图像输入类型 */
+export type ImageSource =
+  | HTMLImageElement
+  | HTMLCanvasElement
+  | HTMLVideoElement
+  | string // URL 或文件路径
+  | Buffer // Node.js Buffer
+  | Uint8Array // 字节数组
+  | ArrayBuffer // ArrayBuffer
+  | { data: Uint8Array; width: number; height: number } // 像素数据对象
+
+// ==================== OCR 配置 ====================
+
+/** 表格识别选项 */
+export interface TableRecognitionOptions {
+  enableCoord?: boolean
+  mergeSpans?: boolean
+  format?: "html" | "markdown" | "excel"
+}
+
+/** 公式识别选项 */
+export interface FormulaRecognitionOptions {
+  type?: "auto" | "inline" | "block" | "inline_tex" | "block_tex" | "html"
+  engine?: "mathpix" | "custom"
+}
+
+/** 版面分析选项 */
+export interface LayoutAnalysisOptions {
+  regionTypes?: ("text" | "table" | "figure" | "title" | "header" | "footer")[]
+  minConfidence?: number
+}
+
+/** 条码识别选项 */
+export interface BarcodeRecognitionOptions {
+  formats?: string[]
+  minLength?: number
+  maxLength?: number
+}
+
+/** 水印检测选项 */
+export interface WatermarkDetectionOptions {
+  types?: ("watermark" | "logo")[]
+  positions?: ("top-left" | "top-right" | "bottom-left" | "bottom-right" | "center")[]
+  minConfidence?: number
+}
+
+/** PaddleOCR 配置选项 */
 export interface PaddleOCROptions {
   // 基础配置
   modelPath?: string
@@ -206,11 +234,16 @@ export interface PaddleOCROptions {
   // 文本检测
   enableDetection?: boolean
   detectionModel?: "DB" | "DB++" | "EAST" | "PAN" | string
+  detectionThreshold?: number
+  detectionBoxThresh?: number
+  detectionUnclipRatio?: number
 
   // 文本识别
   enableRecognition?: boolean
   recognitionModel?: "CRNN" | "SVTR" | "NRTR" | string
   language?: LanguageOption
+  recognitionBeamSize?: number
+  recognitionCandOverlapRatio?: number
 
   // 高级功能
   enableTable?: boolean
@@ -225,207 +258,126 @@ export interface PaddleOCROptions {
   // 公式识别选项
   formulaOptions?: FormulaRecognitionOptions
 
-  // 性能配置
-  maxSideLen?: number
-  threshold?: number
-  batchSize?: number
-  enableGPU?: boolean
-  numThreads?: number // WASM 线程数
-  useMultiScale?: boolean // 多尺度检测
-  useAngle_cls?: boolean // 方向分类
+  // 版面分析选项
+  layoutOptions?: LayoutAnalysisOptions
+
+  // 条码识别选项
+  barcodeOptions?: BarcodeRecognitionOptions
+
+  // 水印检测选项
+  watermarkOptions?: WatermarkDetectionOptions
 
   // 缓存配置
-  enableCache?: boolean
-  cacheSize?: number
+  cacheOptions?: {
+    maxSize?: number // MB
+    maxCount?: number
+    ttl?: number // ms
+    enableResultCache?: boolean
+    enableModelCache?: boolean
+  }
 
-  // 回调
-  onProgress?: ProgressCallback
-  onError?: ErrorCallback
+  // 性能配置
+  performanceOptions?: {
+    threads?: number
+    batchSize?: number
+    memoryLimit?: number // MB
+    timeout?: number // ms
+  }
+
+  // 调试配置
+  debugOptions?: {
+    verbose?: boolean
+    logLevel?: "info" | "debug" | "trace"
+    saveIntermediateResults?: boolean
+  }
 }
 
-/** 表格识别选项 */
-export interface TableRecognitionOptions {
-  enableCoord?: boolean
-  mergeSpans?: boolean
-  format?: "html" | "markdown" | "excel"
+// ==================== 缓存类型 ====================
+
+/** 缓存统计信息 */
+export interface CacheStats {
+  totalHits: number
+  totalMisses: number
+  hitRate: number
+  size: number
+  count: number
 }
 
-/** 语言选项 */
-export type LanguageOption =
-  | "ch"
-  | "en"
-  | "fr"
-  | "de"
-  | "es"
-  | "pt"
-  | "it"
-  | "ru"
-  | "ja"
-  | "ko"
-  | "ar"
-  | "hi"
-  | string[]
-
-/** 进度回调 */
-export type ProgressCallback = (progress: number, stage: string, details?: Record<string, any>) => void
-
-/** 错误回调 */
-export type ErrorCallback = (error: Error, stage?: string) => void
-
-// ==================== 处理选项 ====================
-
-/** 处理模式 */
-export type ProcessMode = "text" | "table" | "layout" | "formula" | "barcode" | "all"
-
-/** 处理选项 */
-export interface ProcessOptions {
-  mode?: ProcessMode
-  returnOriginalImage?: boolean
-  useAngle?: boolean
-  useDeskew?: boolean
-  visualize?: boolean // 可视化结果
-  outputPath?: string // 输出路径 (Node.js)
+/** 图像缓存接口 */
+export interface ImageCacheInterface {
+  get(key: string): Promise<Uint8Array | null>
+  set(key: string, value: Uint8Array, ttl?: number): Promise<void>
+  delete(key: string): Promise<void>
+  clear(): Promise<void>
+  getStats(): CacheStats
+  has(key: string): Promise<boolean>
+  size(): Promise<number>
 }
 
-// ==================== 输入类型 ====================
-
-/** 支持的图像输入类型 */
-export type ImageSource =
-  | HTMLImageElement
-  | HTMLCanvasElement
-  | HTMLVideoElement
-  | ImageData
-  | CanvasImage
-  | string // URL 或文件路径
-  | Uint8Array
-  | ArrayBuffer
-  | Buffer
-  | Blob
-
-// ==================== Worker 类型 ====================
-
-/** Worker 消息类型 */
-export type WorkerMessageType =
-  | "init"
-  | "recognize"
-  | "batch"
-  | "terminate"
-  | "progress"
-  | "result"
-  | "error"
-
-/** Worker 消息 */
-export interface WorkerMessage {
-  id: string
-  type: WorkerMessageType
-  payload?: any
+/** 结果缓存接口 */
+export interface ResultCacheInterface {
+  get(imageHash: string, options: {
+    mode?: ProcessMode
+    threshold?: number
+    language?: LanguageOption
+  }): Promise<OCRResult | null>
+  set(
+    imageHash: string,
+    result: OCRResult,
+    options: {
+      mode?: ProcessMode
+      threshold?: number
+      language?: LanguageOption
+    },
+    ttl?: number
+  ): Promise<void>
+  delete(imageHash: string, options: {
+    mode?: ProcessMode
+    threshold?: number
+    language?: LanguageOption
+  }): Promise<void>
+  clear(): Promise<void>
+  getStats(): CacheStats
+  generateKey(imageData: Uint8Array | string, options: {
+    mode?: ProcessMode
+    threshold?: number
+    language?: LanguageOption
+  }): string
 }
 
-/** Worker 结果 */
-export interface WorkerResult {
-  id: string
-  success: boolean
-  result?: OCRResult | TableResult | LayoutResult
-  error?: string
-}
-
-// ==================== 可视化类型 ====================
-
-/** 可视化选项 */
-export interface VisualizeOptions {
-  drawBoxes?: boolean
-  drawText?: boolean
-  drawLabels?: boolean
-  boxColor?: string
-  textColor?: string
-  boxThickness?: number
-  fontSize?: number
-  fontFamily?: string
-  includeConfidence?: boolean
-}
-
-// ==================== 静态类型 ====================
-
-/** WorkerHelper 构造函数 */
-export interface WorkerHelperConstructor {
-  new (options: PaddleOCROptions, workerUrl?: string): any
-}
-
-/** ResultVisualizer 构造函数 */
-export interface ResultVisualizerConstructor {
-  new (container: string | HTMLElement, options?: VisualizeOptions): any
-}
-
-/** LightVisualizer 构造函数 */
-export interface LightVisualizerConstructor {
-  new (container: string | HTMLElement, options?: VisualizeOptions): any
-}
-
-/** PaddleOCR 静态接口 */
-export interface PaddleOCRStatic {
-  new (options?: PaddleOCROptions): PaddleOCR
-  version: string
-  WorkerHelper: WorkerHelperConstructor
-  ResultVisualizer: ResultVisualizerConstructor
-  LightVisualizer: LightVisualizerConstructor
-
-  // 工具方法
-  getSupportedLanguages(): string[]
-  getModelInfo(): ModelInfo
-  isSupported(): Promise<boolean>
-}
-
-/** 模型信息 */
-export interface ModelInfo {
-  detection: string[]
-  recognition: string[]
-  table: string[]
-  formula: string[]
-  layout: string[]
-}
-
-// ==================== PaddleOCR 实例接口 ====================
-
-/** PaddleOCR 实例接口 */
-export interface PaddleOCRInstance {
-  init(): Promise<void>
-  recognize(image: ImageSource, options?: ProcessOptions): Promise<OCRResult>
-  recognizeTable(image: ImageSource, options?: ProcessOptions): Promise<TableResult>
-  analyzeLayout(image: ImageSource, options?: ProcessOptions): Promise<LayoutResult>
-  recognizeFormula(image: ImageSource, options?: ProcessOptions): Promise<FormulaResult>
-  detectBarcodes(image: ImageSource): Promise<BarcodeResult[]>
-  detectWatermarks(image: ImageSource): Promise<WatermarkInfo[]>
-
-  // 批量处理
-  recognizeBatch(images: ImageSource[], options?: ProcessOptions): Promise<BatchOCRResult>
-
-  // 工具
-  visualize(result: OCRResult, image: ImageSource, options?: VisualizeOptions): Promise<string | Buffer>
-
-  // 生命周期
-  dispose(): Promise<void>
-  getStats(): OCRStats
-}
-
-/** OCR 统计信息 */
-export interface OCRStats {
-  totalRequests: number
-  successfulRequests: number
-  failedRequests: number
-  averageDuration: number
-  cacheHits: number
-  cacheMisses: number
+/** 模型缓存接口 */
+export interface ModelCacheInterface {
+  get(modelName: string): Promise<any | null>
+  set(modelName: string, model: any, ttl?: number): Promise<void>
+  delete(modelName: string): Promise<void>
+  clear(): Promise<void>
+  getStats(): CacheStats
+  has(modelName: string): Promise<boolean>
 }
 
 // ==================== 错误类型 ====================
 
-/** OCR 错误类型 */
+/** 错误代码 */
+export enum ErrorCode {
+  INVALID_IMAGE_FORMAT = 1001,
+  MODEL_LOAD_FAILED = 1002,
+  PROCESSING_TIMEOUT = 1003,
+  CACHE_ERROR = 1004,
+  NETWORK_ERROR = 1005,
+  CONFIG_ERROR = 1006,
+  INIT_FAILED = 1007,
+  RECOGNITION_FAILED = 1008,
+  MEMORY_LIMIT_EXCEEDED = 1009,
+  UNKNOWN_ERROR = 9999
+}
+
+/** OCR 错误 */
 export class OCRError extends Error {
-  code: string
+  code: ErrorCode
   stage?: string
   details?: any
 
-  constructor(message: string, code: string, stage?: string, details?: any) {
+  constructor(message: string, code: ErrorCode, stage?: string, details?: any) {
     super(message)
     this.name = "OCRError"
     this.code = code
@@ -434,16 +386,29 @@ export class OCRError extends Error {
   }
 }
 
-// 错误码
-export const ErrorCode = {
-  INIT_FAILED: "INIT_FAILED",
-  MODEL_NOT_FOUND: "MODEL_NOT_FOUND",
-  DETECTION_FAILED: "DETECTION_FAILED",
-  RECOGNITION_FAILED: "RECOGNITION_FAILED",
-  INVALID_IMAGE: "INVALID_IMAGE",
-  NOT_INITIALIZED: "NOT_INITIALIZED",
-  WORKER_ERROR: "WORKER_ERROR",
-  UNSUPPORTED_FORMAT: "UNSUPPORTED_FORMAT",
-  OUT_OF_MEMORY: "OUT_OF_MEMORY",
-  TIMEOUT: "TIMEOUT",
-} as const
+// ==================== 工具函数类型 ====================
+
+/** 图像处理器接口 */
+export interface ImageProcessorInterface {
+  loadImage(source: ImageSource): Promise<{
+    data: Uint8Array
+    width: number
+    height: number
+  }>
+  resizeImage(data: Uint8Array, width: number, height: number): Uint8Array
+  normalizeImage(data: Uint8Array, width: number, height: number): Uint8Array
+  generateCacheKey(data: Uint8Array): string
+}
+
+/** 模型加载器接口 */
+export interface ModelLoaderInterface {
+  loadDetectionModel(options: PaddleOCROptions): Promise<any>
+  loadRecognitionModel(options: PaddleOCROptions): Promise<any>
+  loadTableModel(options: PaddleOCROptions): Promise<any>
+  loadLayoutModel(options: PaddleOCROptions): Promise<any>
+  unloadModel(modelType: "detection" | "recognition" | "table" | "layout"): Promise<void>
+}
+
+// ==================== 导出类型 ====================
+
+// 导出所有主要类型以便外部使用

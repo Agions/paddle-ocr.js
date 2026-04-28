@@ -1,6 +1,6 @@
 {
   "name": "paddleocr-js",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "PaddleOCR JavaScript wrapper - OCR, Table, Formula, Barcode recognition for browser and Node.js",
   "main": "dist/node/index.js",
   "browser": "dist/browser/index.min.js",

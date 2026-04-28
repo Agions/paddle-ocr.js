@@ -1,6 +1,7 @@
 import { PaddleOCROptions, TextBox, TextLine } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
 import { ImageProcessor } from "../utils/imageProcessor"
+import { ModelLoader } from "../utils/ModelLoader"
 
 /**
  * 文本识别类
@@ -8,6 +9,7 @@ import { ImageProcessor } from "../utils/imageProcessor"
  */
 export class TextRecognizer {
   private options: PaddleOCROptions
+  private modelLoader: ModelLoader
   private model: any = null
   private isInitialized = false
   private vocab: string[] = []
@@ -18,6 +20,7 @@ export class TextRecognizer {
    */
   constructor(options: PaddleOCROptions) {
     this.options = options
+    this.modelLoader = new ModelLoader(options)
   }
 
   /**
@@ -32,14 +35,8 @@ export class TextRecognizer {
       // 加载词汇表
       await this.loadVocab()
 
-      // 根据设置的后端选择模型加载方式
-      if (this.options.useTensorflow) {
-        await this.initTensorflowModel()
-      } else if (this.options.useONNX) {
-        await this.initONNXModel()
-      } else {
-        throw new Error("未指定模型后端")
-      }
+      // 使用 ModelLoader 统一加载模型
+      this.model = await this.modelLoader.loadRecognitionModel()
 
       this.isInitialized = true
     } catch (error) {
@@ -78,36 +75,6 @@ export class TextRecognizer {
       // 使用一个简单的默认词汇表进行测试
       this.vocab = "abcdefghijklmnopqrstuvwxyz0123456789".split("")
     }
-  }
-
-  /**
-   * 初始化TensorFlow模型
-   */
-  private async initTensorflowModel(): Promise<void> {
-    // 实际实现中，这里会加载TFJS模型
-    const tf = require("@tensorflow/tfjs")
-    const language = this.options.language || "ch"
-    const modelPath = `${
-      this.options.modelPath
-    }/rec_${this.options.recognitionModel?.toLowerCase()}/model_${language}.json`
-
-    console.log(`加载文本识别模型: ${modelPath}`)
-    this.model = await tf.loadGraphModel(modelPath)
-  }
-
-  /**
-   * 初始化ONNX模型
-   */
-  private async initONNXModel(): Promise<void> {
-    // 实际实现中，这里会加载ONNX模型
-    const ort = require("onnxruntime-web")
-    const language = this.options.language || "ch"
-    const modelPath = `${
-      this.options.modelPath
-    }/rec_${this.options.recognitionModel?.toLowerCase()}/model_${language}.onnx`
-
-    console.log(`加载文本识别模型: ${modelPath}`)
-    this.model = await ort.InferenceSession.create(modelPath)
   }
 
   /**
@@ -270,5 +237,8 @@ export class TextRecognizer {
     }
     this.model = null
     this.isInitialized = false
+
+    // 释放 ModelLoader
+    this.modelLoader.dispose()
   }
 }

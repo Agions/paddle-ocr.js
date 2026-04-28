@@ -203,7 +203,7 @@ describe("OCRError", () => {
     const error = new OCRError("Test error", ErrorCode.INIT_FAILED, "test", { detail: true })
 
     expect(error.message).toBe("Test error")
-    expect(error.code).toBe("INIT_FAILED")
+    expect(error.code).toBe(ErrorCode.INIT_FAILED)
     expect(error.stage).toBe("test")
     expect(error.details).toEqual({ detail: true })
     expect(error.name).toBe("OCRError")

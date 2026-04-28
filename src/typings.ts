@@ -139,7 +139,7 @@ export interface WatermarkInfo {
 export type ProcessMode = "text" | "table" | "layout" | "formula" | "barcode" | "all"
 
 /** 语言选项 */
-export type LanguageOption = "ch" | "en" | "fr"
+export type LanguageOption = "ch" | "en" | "fr" | "de" | "ja" | "ko"
 
 /** 错误回调 */
 export type ErrorCallback = (error: Error, stage?: string) => void

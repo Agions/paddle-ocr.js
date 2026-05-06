@@ -64,8 +64,8 @@ export interface TableResult {
       bbox: Point[]
     }>
     bbox: Point[]
-    structure?: any
   }
+  structure?: any
   format?: "html" | "markdown" | "excel"
   html?: string
   markdown?: string
@@ -313,8 +313,11 @@ export interface PaddleOCROptions {
   enableCache?: boolean // 已废弃，使用 cacheOptions 替代
   cacheSize?: number // 已废弃，使用 cacheOptions 替代
   threshold?: number // 已废弃，使用 detectionThreshold 替代
-  batchSize?: number // 已废弃，使用 performanceOptions 替代
+      batchSize?: number // 已废弃，使用 performanceOptions 替代
   enableGPU?: boolean // 已废弃，使用 useWasm 替代
+  numThreads?: number // 已废弃，使用 performanceOptions.threads 替代
+  useMultiScale?: boolean // 已废弃
+  useAngle_cls?: boolean // 已废弃
   onProgress?: ProgressCallback // 已废弃，传递给方法调用
 
   // 调试配置

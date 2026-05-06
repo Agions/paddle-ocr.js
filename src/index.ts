@@ -2,13 +2,13 @@
  * PaddleOCR-JS 统一导出入口
  */
 
-import PaddleOCR from "./paddleocr"
+import { PaddleOCR } from "./PaddleOCRFacade"
 import { PaddleOCRWorker } from "./utils/workerHelper"
 import { ResultVisualizer } from "./utils/resultVisualizer"
 import { LightVisualizer } from "./utils/lightVisualizer"
 
 // 版本号
-const VERSION = "0.2.0"
+const VERSION = "0.3.0"
 
 // 扩展 PaddleOCR 静态属性
 Object.defineProperties(PaddleOCR, {
@@ -43,11 +43,14 @@ export { BarcodeRecognizer } from "./modules/barcodeRecognizer"
 
 // 导出工具
 export { ModelCache, ImageCache, ResultCache } from "./utils/cache"
-export { loadImage, OCRImageData as ImageData } from "./utils/image"
+export { loadImage } from "./utils/image"
 export { isNode, isBrowser } from "./utils/env"
 export { ResultVisualizer } from "./utils/resultVisualizer"
 export { LightVisualizer } from "./utils/lightVisualizer"
 export { ImageProcessor } from "./utils/imageProcessor"
+
+// 导出核心管理器
+export { StatsManager } from "./core/StatsManager"
 
 // 导出主类
 export { PaddleOCR }

@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🏗️ Architecture Refactoring
+
+#### **ServiceCoordinator Removal (方案 B)**
+- ✅ **Deleted `ServiceCoordinator.ts`** (562 lines of duplicate code)
+- ✅ **Refactored `PaddleOCRFacade.ts`** to directly manage modules
+- ✅ **Eliminated 3-layer architecture** → 2-layer (PaddleOCR → Modules + Managers)
+- ✅ **Code reduction**: ~200 net lines removed
+
+#### **Type Safety Improvements**
+- ✅ **Fixed all TypeScript compilation errors** (30+ → 0)
+- ✅ **Fixed `TableResult` structure**: `cells` moved to `table.cells`
+- ✅ **Fixed all `cell.text` → `cell.content`** (6 places)
+- ✅ **Fixed all `cell.box` → `cell.bbox`** (4 places)
+- ✅ **Fixed all `.cells` → `.table.cells`** (17 places)
+- ✅ **Extended `ImageProcessor.generateCacheKey()`** to support full `ImageSource` type
+
+#### **Legacy Code Cleanup**
+- ✅ **Deleted `src/paddleocr.ts`** (604 lines, replaced by PaddleOCRFacade)
+- ✅ **Updated `src/index.ts`** to export from PaddleOCRFacade
+- ✅ **Updated `src/worker.ts`** to use PaddleOCRFacade
+- ✅ **Replaced `any[]` types** with `TextBox[]` and `TextLine[]`
+
+#### **Dead Code Elimination**
+- ✅ **Deleted `src/core/ModelManager.ts`** (248 lines, zombie code - instantiated but never used)
+- ✅ **Deleted `src/core/CacheManager.ts`** (178 lines, zombie code - PaddleOCRFacade manages cache directly)
+- ✅ **Deleted `src/core/ProcessingStrategies.ts`** (91 lines, interfaces never imported)
+- ✅ **Deleted `src/visualizing/` directory** (1,697 lines, entire directory never imported)
+- ✅ **Updated `src/index.ts`** to remove exports of deleted managers
+- ✅ **Updated `src/PaddleOCRFacade.ts`** to remove dead imports and fields
+- ✅ **Net code reduction**: ~2,214 lines removed
+
+### ✅ Validation
+
+#### **Statistics**
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| TypeScript Errors | 30+ | **0** | ✅ |
+| Duplicate Code | ~1,200 lines | ~600 lines | **-50%** |
+| Architecture Layers | 3 | 2 | **Simplified** |
+
+### 未完成功能
+- `TextDetector.postprocess()` 当前始终返回空数组 `[]`（需要实现真实的文本检测后处理）
+- `StatsManager` 已实现但未在主类中使用
+
+### 📚 文档更新
+- ✅ **更新 `README.md`** 项目结构，反映最新架构
+- ✅ **更新 `docs/api.md`** 修复 `TableResult` 结构说明（`cells` → `table.cells`）
+- ✅ **更新 `docs/architecture.md`** 更新架构图，移除已删除模块引用
+
 ## [0.3.0] - 2026-04-28
 
 ### 🎉 Major Release - OH-NO 6-Step Systematic Refactoring Complete

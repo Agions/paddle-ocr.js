@@ -1,24 +1,23 @@
-import { PaddleOCROptions, TextBox, Point } from "../typings"
+import { PaddleOCROptions, TextBox } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
 import { ImageProcessor } from "../utils/imageProcessor"
 import { ModelLoader } from "../utils/ModelLoader"
+import { BaseRecognizer } from "./BaseRecognizer"
 
 /**
  * 文本检测类
  * 负责检测图像中的文本区域
  */
-export class TextDetector {
-  private options: PaddleOCROptions
+export class TextDetector extends BaseRecognizer {
   private modelLoader: ModelLoader
   private model: any = null
-  private isInitialized = false
 
   /**
    * 创建文本检测器实例
    * @param options 配置选项
    */
   constructor(options: PaddleOCROptions) {
-    this.options = options
+    super(options)
     this.modelLoader = new ModelLoader(options)
   }
 
@@ -45,13 +44,11 @@ export class TextDetector {
    * @param image 输入图像
    */
   public async detect(image: ImageData): Promise<TextBox[]> {
-    if (!this.isInitialized) {
-      await this.init()
-    }
+    this.checkInitialized()
 
     try {
       // 预处理图像
-      const processedImage = this.preprocess(image)
+      const processedImage = ImageProcessor.preprocess(image)
 
       // 根据模型类型执行推理
       let predictions
@@ -72,7 +69,7 @@ export class TextDetector {
   }
 
   /**
-   * 使用TensorFlow进行检测
+   * 使用 TensorFlow 进行检测
    */
   private async detectWithTensorflow(processedImage: any): Promise<any> {
     const tf = require("@tensorflow/tfjs")
@@ -90,10 +87,10 @@ export class TextDetector {
   }
 
   /**
-   * 使用ONNX进行检测
+   * 使用 ONNX 进行检测
    */
   private async detectWithONNX(processedImage: any): Promise<any> {
-    // 准备ONNX输入
+    // 准备 ONNX 输入
     const input = new Float32Array(processedImage.data)
     const inputTensor = new (require("onnxruntime-web").Tensor)(
       "float32",
@@ -109,13 +106,6 @@ export class TextDetector {
   }
 
   /**
-   * 图像预处理
-   */
-  private preprocess(image: ImageData): any {
-    return ImageProcessor.preprocess(image)
-  }
-
-  /**
    * 后处理检测结果
    */
   private postprocess(
@@ -124,9 +114,6 @@ export class TextDetector {
     originalHeight: number
   ): TextBox[] {
     // TODO: 实现真实的 DBNet/EAST 后处理逻辑
-    // 应该解析模型输出张量，应用阈值和轮廓分析提取文本框
-    // 示例: const binaryMap = predictions[0].dataSync()
-    //        const boxes = this.dbPostprocess(binaryMap, originalWidth, originalHeight)
     return []
   }
 
@@ -134,13 +121,16 @@ export class TextDetector {
    * 释放资源
    */
   public async dispose(): Promise<void> {
-    if (this.model && typeof this.model.dispose === "function") {
-      this.model.dispose()
-    }
+    // 释放模型
+    this.disposeModel(this.model)
     this.model = null
-    this.isInitialized = false
-
+    
     // 释放 ModelLoader
-    this.modelLoader.dispose()
+    if (this.modelLoader && typeof this.modelLoader.dispose === "function") {
+      await this.modelLoader.dispose()
+    }
+    
+    // 调用基类清理
+    await super.dispose()
   }
 }

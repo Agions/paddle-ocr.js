@@ -177,15 +177,15 @@ const barcodes = await paddleOCR.detectBarcodes(imageSource);
 // barcodes[0].data   // 编码内容
 ```
 
-### 批量处理
+### 批量识别
 
 ```javascript
 const images = ['img1.jpg', 'img2.jpg', 'img3.jpg'];
 const batchResult = await paddleOCR.recognizeBatch(images);
 
-// batchResult.results         // OCRResult 数组
-// batchResult.totalDuration    // 总耗时
-// batchResult.averageDuration // 平均耗时
+// batchResult.results          // OCRResult 数组
+// batchResult.totalDuration    // 总耗时（毫秒）
+// batchResult.averageDuration  // 平均耗时（毫秒）
 ```
 
 ### 布局分析
@@ -246,7 +246,6 @@ class PaddleOCR {
 
 ```typescript
 PaddleOCR.getSupportedLanguages(): string[]
-PaddleOCR.getModelInfo(): ModelInfo
 PaddleOCR.isSupported(): Promise<boolean>
 ```
 
@@ -286,23 +285,35 @@ PaddleOCR.isSupported(): Promise<boolean>
 ```
 paddle-ocr.js/
 ├── src/
-│   ├── paddleocr.ts      # 主类
-│   ├── index.ts           # 入口
-│   ├── typings.ts         # 类型定义
-│   ├── modules/           # 核心模块
-│   │   ├── textDetector.ts
-│   │   ├── textRecognizer.ts
-│   │   ├── tableRecognizer.ts
-│   │   ├── layoutAnalyzer.ts
-│   │   ├── formulaRecognizer.ts
-│   │   └── barcodeRecognizer.ts
-│   └── utils/             # 工具函数
-│       ├── image.ts
-│       ├── cache.ts
-│       └── env.ts
-├── dist/                  # 编译输出
-├── examples/             # 示例
-└── docs/                 # 文档
+│   ├── index.ts              # 统一入口
+│   ├── typings.ts            # 类型定义
+│   ├── PaddleOCRFacade.ts    # 主类（Facade模式）
+│   ├── worker.ts             # Web Worker入口
+│   ├── core/
+│   │   ├── Constants.ts      # 常量配置
+│   │   └── StatsManager.ts   # 统计管理
+│   ├── modules/              # 核心模块
+│   │   ├── textDetector.ts   # 文本检测
+│   │   ├── textRecognizer.ts # 文本识别
+│   │   ├── tableRecognizer.ts# 表格识别
+│   │   ├── layoutAnalyzer.ts # 版面分析
+│   │   ├── formulaRecognizer.ts # 公式识别
+│   │   └── barcodeRecognizer.ts # 条码识别
+│   └── utils/                # 工具函数
+│       ├── image.ts          # 图像处理
+│       ├── imageProcessor.ts # 图像预处理
+│       ├── cache.ts          # 缓存工具
+│       ├── env.ts            # 环境检测
+│       ├── resultVisualizer.ts # 结果可视化
+│       ├── lightVisualizer.ts  # 轻量可视化
+│       └── visualTypes.ts    # 可视化类型
+├── dist/                     # 编译输出
+│   ├── browser/              # 浏览器包（UMD）
+│   ├── node/                 # Node包（CommonJS）
+│   └── types/                # 类型声明
+├── docs/                     # 文档
+├── examples/                 # 示例
+└── tests/                    # 测试
 ```
 
 ## License

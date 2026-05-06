@@ -1,5 +1,5 @@
 import { OCRImageData as ImageData } from "./image"
-import { Point } from "../typings"
+import { Point, ImageSource } from "../typings"
 
 /**
  * 通用图像处理工具类
@@ -131,15 +131,32 @@ export class ImageProcessor {
   }
 
   /**
-   * 计算图像缓存键
+   * 生成缓存键
    * @param source 图像源标识
    * @param options 处理选项
    */
   public static generateCacheKey(
-    source: string | Uint8Array,
+    source: ImageSource | string | Uint8Array,
     options?: { width?: number; height?: number; threshold?: number; mode?: string }
   ): string {
-    const hash = this.simpleHash(typeof source === "string" ? source : this.arrayToString(source))
+    // 将各种类型统一转换为字符串
+    let sourceStr: string
+    if (typeof source === "string") {
+      sourceStr = source
+    } else if (source instanceof Uint8Array) {
+      sourceStr = this.arrayToString(source)
+    } else if (source instanceof ArrayBuffer) {
+      sourceStr = this.arrayToString(new Uint8Array(source))
+    } else if (Buffer.isBuffer(source)) {
+      sourceStr = source.toString("base64")
+    } else if (source && typeof source === "object" && "data" in source) {
+      // 像素数据对象
+      sourceStr = this.arrayToString(source.data as Uint8Array)
+    } else {
+      sourceStr = String(source)
+    }
+    
+    const hash = this.simpleHash(sourceStr)
     return `img_${hash}_${options?.width || 0}x${options?.height || 0}_${options?.mode || "default"}`
   }
 

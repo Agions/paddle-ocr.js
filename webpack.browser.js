@@ -62,6 +62,9 @@ const mainConfig = merge(common, {
       export: "default",
     },
   },
+  externals: {
+    canvas: "canvas",
+  },
   optimization: {
     minimize: false,
   },
@@ -89,6 +92,9 @@ const minConfig = merge(common, {
       type: "umd",
       export: "default",
     },
+  },
+  externals: {
+    canvas: "canvas",
   },
   optimization: {
     minimize: true,
@@ -132,6 +138,9 @@ const workerConfig = merge(common, {
     path: path.resolve(__dirname, "dist/browser"),
     globalObject: "this",
   },
+  externals: {
+    canvas: "canvas",
+  },
   optimization: {
     minimize: false,
   },
@@ -146,6 +155,9 @@ const minWorkerConfig = merge(common, {
     filename: "paddle-ocr-worker.min.js",
     path: path.resolve(__dirname, "dist/browser"),
     globalObject: "this",
+  },
+  externals: {
+    canvas: "canvas",
   },
   optimization: {
     minimize: true,

@@ -351,11 +351,28 @@ export class TableRecognizer {
 
     html += "</table>"
 
+    // 构建单元格数组（包含 bbox）
+    const cells = cellContents.map(cell => ({
+      row: cell.row,
+      col: cell.col,
+      content: cell.content,
+      bbox: cell.bbox || []
+    }))
+
     return {
+      table: {
+        cells,
+        bbox: structureResult.bbox || [],
+      },
       structure: structureResult,
-      cells: cellContents,
       html,
       markdown: this.convertToMarkdown(structureResult, cellContents),
+      duration: {
+        preprocess: 0,
+        detection: 0,
+        recognition: 0,
+        total: 0,
+      },
     }
   }
 

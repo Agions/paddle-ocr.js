@@ -134,8 +134,14 @@ export class BarcodeRecognizer {
         type: this.parseBarcodeType(detection.format),
         data: detection.data,
         format: detection.format,
-        box: detection.box,
-        score: detection.score || 0.9,
+        bbox: detection.box,
+        barcode: detection.data,
+        duration: {
+          preprocess: 0,
+          detection: 0,
+          recognition: 0,
+          total: 0,
+        },
       }
       results.push(result)
     }

@@ -2,16 +2,15 @@ import { PaddleOCROptions, TextBox, TextLine } from "../typings"
 import { OCRImageData as ImageData } from "../utils/image"
 import { ImageProcessor } from "../utils/imageProcessor"
 import { ModelLoader } from "../utils/ModelLoader"
+import { BaseRecognizer } from "./BaseRecognizer"
 
 /**
  * 文本识别类
  * 负责识别检测出的文本区域内容
  */
-export class TextRecognizer {
-  private options: PaddleOCROptions
+export class TextRecognizer extends BaseRecognizer {
   private modelLoader: ModelLoader
   private model: any = null
-  private isInitialized = false
   private vocab: string[] = []
 
   /**
@@ -19,7 +18,7 @@ export class TextRecognizer {
    * @param options 配置选项
    */
   constructor(options: PaddleOCROptions) {
-    this.options = options
+    super(options)
     this.modelLoader = new ModelLoader(options)
   }
 
@@ -63,7 +62,7 @@ export class TextRecognizer {
         const response = await fetch(vocabPath)
         vocabText = await response.text()
       } else {
-        // Node.js环境
+        // Node.js 环境
         const fs = require("fs")
         vocabText = await fs.promises.readFile(vocabPath, "utf-8")
       }
@@ -86,9 +85,7 @@ export class TextRecognizer {
     image: ImageData,
     boxes?: TextBox[]
   ): Promise<TextLine[]> {
-    if (!this.isInitialized) {
-      await this.init()
-    }
+    this.checkInitialized()
 
     try {
       const textLines: TextLine[] = []
@@ -99,10 +96,10 @@ export class TextRecognizer {
           const box = boxes[i]
 
           // 从原图中裁剪出文本区域
-          const textRegion = this.cropTextRegion(image, box.box)
+          const textRegion = ImageProcessor.cropRegion(image, box.box)
 
           // 预处理
-          const processedRegion = this.preprocess(textRegion)
+          const processedRegion = ImageProcessor.preprocess(textRegion)
 
           // 识别文本
           let recognitionResult
@@ -127,7 +124,7 @@ export class TextRecognizer {
         }
       } else {
         // 如果没有提供文本框，则对整个图像进行识别
-        const processedImage = this.preprocess(image)
+        const processedImage = ImageProcessor.preprocess(image)
 
         let recognitionResult
         if (this.options.useTensorflow) {
@@ -154,7 +151,7 @@ export class TextRecognizer {
   }
 
   /**
-   * 使用TensorFlow进行识别
+   * 使用 TensorFlow 进行识别
    */
   private async recognizeWithTensorflow(processedImage: any): Promise<any> {
     const tf = require("@tensorflow/tfjs")
@@ -178,10 +175,10 @@ export class TextRecognizer {
   }
 
   /**
-   * 使用ONNX进行识别
+   * 使用 ONNX 进行识别
    */
   private async recognizeWithONNX(processedImage: any): Promise<any> {
-    // 准备ONNX输入
+    // 准备 ONNX 输入
     const input = new Float32Array(processedImage.data)
     const inputTensor = new (require("onnxruntime-web").Tensor)(
       "float32",
@@ -202,29 +199,10 @@ export class TextRecognizer {
   }
 
   /**
-   * 从图像中裁剪文本区域
-   */
-  private cropTextRegion(
-    image: ImageData,
-    points: { x: number; y: number }[]
-  ): ImageData {
-    return ImageProcessor.cropRegion(image, points)
-  }
-
-  /**
-   * 图像预处理
-   */
-  private preprocess(image: ImageData): any {
-    return ImageProcessor.preprocess(image)
-  }
-
-  /**
    * 解码识别结果为文本
    */
   private decodeText(recognitionResult: any): string {
-    // TODO: 实现真实的CTC解码/注意力解码逻辑
-    // 当前为占位实现，应该根据 vocabulary 和模型输出张量解码
-    // 示例: return this.ctcDecode(recognitionResult.probabilities, this.vocab)
+    // TODO: 实现真实的 CTC 解码/注意力解码逻辑
     return ""
   }
 
@@ -232,13 +210,16 @@ export class TextRecognizer {
    * 释放资源
    */
   public async dispose(): Promise<void> {
-    if (this.model && typeof this.model.dispose === "function") {
-      this.model.dispose()
-    }
+    // 释放模型
+    this.disposeModel(this.model)
     this.model = null
-    this.isInitialized = false
-
+    
     // 释放 ModelLoader
-    this.modelLoader.dispose()
+    if (this.modelLoader && typeof this.modelLoader.dispose === "function") {
+      await this.modelLoader.dispose()
+    }
+    
+    // 调用基类清理
+    await super.dispose()
   }
 }

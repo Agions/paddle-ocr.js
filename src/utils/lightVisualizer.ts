@@ -156,8 +156,9 @@ export class LightVisualizer {
 
         listContainer.appendChild(listItem)
       })
-    } else if (this.mode === "table" && "cells" in this.result) {
-      const items = this.result.cells.slice(0, this.maxBoxesToRender)
+    } else if (this.mode === "table" && "table" in this.result) {
+      const tableResult = this.result as TableResult
+      const items = tableResult.table.cells.slice(0, this.maxBoxesToRender)
 
       items.forEach((cell, index) => {
         const listItem = document.createElement("div")
@@ -171,7 +172,7 @@ export class LightVisualizer {
           listItem.style.fontWeight = "bold"
         }
 
-        listItem.textContent = `R${cell.row}C${cell.col}: ${cell.text}`
+        listItem.textContent = `R${cell.row}C${cell.col}: ${cell.content}`
 
         // 添加点击事件
         listItem.addEventListener("click", () => {
@@ -282,8 +283,9 @@ export class LightVisualizer {
     if (this.mode === "text" && "textDetection" in this.result) {
       const boxes = this.result.textDetection.slice(0, this.maxBoxesToRender)
       id = this.findBoxAtPosition(x, y, boxes)
-    } else if (this.mode === "table" && "cells" in this.result) {
-      const cells = this.result.cells.slice(0, this.maxBoxesToRender)
+    } else if (this.mode === "table" && "table" in this.result) {
+      const tableResult = this.result as TableResult
+      const cells = tableResult.table.cells.slice(0, this.maxBoxesToRender)
       id = this.findBoxAtPosition(x, y, cells)
     } else if (this.mode === "layout" && "regions" in this.result) {
       const regions = this.result.regions.slice(0, this.maxBoxesToRender)
@@ -305,8 +307,9 @@ export class LightVisualizer {
             (t) => t.box && t.box.id === box.id
           )
           selectedItem = { box, text }
-        } else if (this.mode === "table" && "cells" in this.result) {
-          selectedItem = this.result.cells[id]
+        } else if (this.mode === "table" && "table" in this.result) {
+          const tableResult = this.result as TableResult
+          selectedItem = tableResult.table.cells[id]
         } else if (this.mode === "layout" && "regions" in this.result) {
           selectedItem = this.result.regions[id]
         }
@@ -328,12 +331,12 @@ export class LightVisualizer {
   }
 
   /**
-   * 查找点击位置下的框
+   * 查找指定位置的元素（支持 box 或 bbox 属性）
    */
   private findBoxAtPosition(
     x: number,
     y: number,
-    items: Array<{ box: Point[] }>
+    items: Array<{ box?: Point[]; bbox?: Point[] }>
   ): number {
     const { width, height } = this.canvas
     const scaleX = width / (this.image as HTMLImageElement).naturalWidth
@@ -341,7 +344,8 @@ export class LightVisualizer {
 
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i]
-      const box = item.box
+      // 优先使用 bbox，其次使用 box
+      const box = item.bbox || item.box
 
       if (!box || !Array.isArray(box) || box.length < 3) continue
 
@@ -509,8 +513,8 @@ export class LightVisualizer {
     if (this.result) {
       if (this.mode === "text" && "textDetection" in this.result) {
         this.renderText(this.result)
-      } else if (this.mode === "table" && "cells" in this.result) {
-        this.renderTable(this.result)
+      } else if (this.mode === "table" && "table" in this.result) {
+        this.renderTable(this.result as TableResult)
       } else if (this.mode === "layout" && "regions" in this.result) {
         this.renderLayout(this.result)
       }
@@ -585,7 +589,7 @@ export class LightVisualizer {
     const scaleY = height / (this.image as HTMLImageElement).naturalHeight
 
     // 仅渲染部分单元格以提高性能
-    const cells = result.cells.slice(0, this.maxBoxesToRender)
+    const cells = result.table.cells.slice(0, this.maxBoxesToRender)
 
     cells.forEach((cell, index) => {
       const isSelected = index === this.selectedId
@@ -597,20 +601,20 @@ export class LightVisualizer {
         : this.options.lineWidth
 
       // 绘制单元格框
-      this.drawBox(cell.box, scaleX, scaleY)
+      this.drawBox(cell.bbox, scaleX, scaleY)
 
       // 在简单模式下不绘制内容
       if (this.options.renderMode === "simple") return
 
       // 绘制单元格内容
-      const points = cell.box.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }))
+      const points = cell.bbox.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }))
       const textX = Math.min(...points.map((p) => p.x))
       const textY = Math.min(...points.map((p) => p.y))
 
       // 绘制文本背景
       this.ctx.fillStyle = this.options.bgColor
       const displayText =
-        cell.text.length > 10 ? cell.text.substring(0, 10) + "..." : cell.text
+        cell.content.length > 10 ? cell.content.substring(0, 10) + "..." : cell.content
       const textWidth = this.ctx.measureText(displayText).width + 4
       const textHeight = this.options.fontSize + 4
       this.ctx.fillRect(textX, textY - textHeight, textWidth, textHeight)

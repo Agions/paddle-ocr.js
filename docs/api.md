@@ -148,25 +148,28 @@ const tableResult = await paddleOCR.recognizeTable(image, options);
 
 ```javascript
 {
-  structure: {  // 表格结构信息
-    rows: 5,    // 行数
-    cols: 4,    // 列数
-    lines: {    // 表格线条信息
-      horizontal: [ /* 水平线信息 */ ],
-      vertical: [ /* 垂直线信息 */ ]
-    }
-  },
-  cells: [  // 单元格信息
-    {
-      box: [ /* 单元格边界框 */ ],  // 单元格边界坐标
-      text: "单元格内容",         // 单元格文本内容
-      rowspan: 1,                // 行合并数
-      colspan: 1,                // 列合并数
-      row: 0,                    // 行索引
-      col: 0                     // 列索引
+  table: {
+    structure: {  // 表格结构信息
+      rows: 5,    // 行数
+      cols: 4,    // 列数
+      lines: {    // 表格线条信息
+        horizontal: [ /* 水平线信息 */ ],
+        vertical: [ /* 垂直线信息 */ ]
+      }
     },
-    // ...更多单元格
-  ],
+    cells: [  // 单元格信息
+      {
+        box: [ /* 单元格边界框 */ ],  // 单元格边界坐标
+        content: "单元格内容",      // 单元格文本内容
+        score: 0.95,              // 识别置信度
+        rowspan: 1,               // 行合并数
+        colspan: 1,               // 列合并数
+        row: 0,                   // 行索引
+        col: 0                    // 列索引
+      },
+      // ...更多单元格
+    ]
+  },
   html: "<table>...</table>"  // HTML格式的表格
 }
 ```
@@ -288,16 +291,32 @@ interface OCRResult {
 
 // 表格结果
 interface TableResult {
-  structure: any;
-  cells: {
-    box: Point[];
-    text: string;
-    rowspan: number;
-    colspan: number;
-    row: number;
-    col: number;
-  }[];
+  table: {
+    structure: TableStructure;
+    cells: TableCell[];
+  };
   html: string;
+}
+
+// 表格结构
+interface TableStructure {
+  rows: number;
+  cols: number;
+  lines: {
+    horizontal: LineInfo[];
+    vertical: LineInfo[];
+  };
+}
+
+// 表格单元格
+interface TableCell {
+  box: Point[];
+  content: string;
+  score: number;
+  rowspan: number;
+  colspan: number;
+  row: number;
+  col: number;
 }
 
 // 版面分析结果
@@ -411,8 +430,8 @@ async function recognizeTable() {
     document.getElementById('tableResult').innerHTML = result.html;
   
     // 也可以访问结构化数据
-    console.log('表格结构:', result.structure);
-    console.log('单元格数据:', result.cells);
+    console.log('表格结构:', result.table.structure);
+    console.log('单元格数据:', result.table.cells);
   } catch (error) {
     console.error('表格识别失败:', error);
   } finally {

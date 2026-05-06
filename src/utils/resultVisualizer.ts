@@ -5,6 +5,7 @@ import {
   LayoutResult,
   Point,
 } from "../typings"
+import { VisualizerOptions } from "./visualTypes"
 import * as Config from "../core/Constants"
 
 /**
@@ -49,6 +50,7 @@ export class ResultVisualizer {
       lineWidth: 2,
       enableAccessibility: true,
       theme: Config.THEMES.DEFAULT,
+      responsive: true,
     }
 
     this.options = { ...defaultOptions, ...options }
@@ -165,8 +167,8 @@ export class ResultVisualizer {
 
     if (this.mode === "text" && "textDetection" in this.result!) {
       maxIndex = (this.result as OCRResult).textDetection.length - 1
-    } else if (this.mode === "table" && "cells" in this.result!) {
-      maxIndex = (this.result as TableResult).cells.length - 1
+    } else if (this.mode === "table" && "table" in this.result!) {
+      maxIndex = (this.result as TableResult).table.cells.length - 1
     } else if (this.mode === "layout" && "regions" in this.result!) {
       maxIndex = (this.result as LayoutResult).regions.length - 1
     }
@@ -359,8 +361,8 @@ export class ResultVisualizer {
           this.ariaLive.setAttribute("aria-atomic", "true")
           this.accessibilityContainer.appendChild(this.ariaLive)
         }
-      } else if ("cells" in result) {
-        summaryText += `识别出${result.cells.length}个表格单元格。`
+      } else if ("table" in result) {
+        summaryText += `识别出${(result as TableResult).table.cells.length}个表格单元格。`
       } else if ("regions" in result) {
         summaryText += `检测到${result.regions.length}个版面区域。`
       }
@@ -497,7 +499,7 @@ export class ResultVisualizer {
    * @param result 表格结果
    */
   private renderTableResult(result: TableResult): void {
-    const { cells } = result
+    const { cells } = result.table
     const { width, height } = this.canvas
     const scaleX = width / (this.image as HTMLImageElement).naturalWidth
     const scaleY = height / (this.image as HTMLImageElement).naturalHeight
@@ -514,7 +516,7 @@ export class ResultVisualizer {
       this.ctx.beginPath()
 
       // 缩放点坐标
-      const scaledPoints = cell.box.map((point) => ({
+      const scaledPoints = cell.bbox.map((point) => ({
         x: point.x * scaleX,
         y: point.y * scaleY,
       }))
@@ -534,7 +536,7 @@ export class ResultVisualizer {
       // 绘制文本背景
       this.ctx.fillStyle = this.options.backgroundColor
       const textWidth =
-        this.ctx.measureText(cell.text).width + this.options.padding * 2
+        this.ctx.measureText(cell.content).width + this.options.padding * 2
       const textHeight = this.options.fontSize + this.options.padding * 2
       this.ctx.fillRect(textX, textY - textHeight, textWidth, textHeight)
 
@@ -542,7 +544,7 @@ export class ResultVisualizer {
       this.ctx.fillStyle = this.options.textColor
       this.ctx.font = `${this.options.fontSize}px Arial`
       this.ctx.fillText(
-        cell.text,
+        cell.content,
         textX + this.options.padding,
         textY - this.options.padding
       )
@@ -738,8 +740,8 @@ export class ResultVisualizer {
         y,
         (this.result as OCRResult).textDetection
       )
-    } else if (this.mode === "table" && "cells" in this.result) {
-      index = this.findCellIndex(x, y, (this.result as TableResult).cells)
+    } else if (this.mode === "table" && "table" in this.result) {
+      index = this.findCellIndex(x, y, (this.result as TableResult).table.cells)
     } else if (this.mode === "layout" && "regions" in this.result) {
       index = this.findRegionIndex(x, y, (this.result as LayoutResult).regions)
     }
@@ -801,14 +803,14 @@ export class ResultVisualizer {
   private findCellIndex(
     x: number,
     y: number,
-    cells: TableResult["cells"]
+    cells: TableResult["table"]["cells"]
   ): number {
     const { width, height } = this.canvas
     const scaleX = width / (this.image as HTMLImageElement).naturalWidth
     const scaleY = height / (this.image as HTMLImageElement).naturalHeight
 
     for (let i = cells.length - 1; i >= 0; i--) {
-      const box = cells[i].box
+      const box = cells[i].bbox
       const scaledPoints = box.map((point) => ({
         x: point.x * scaleX,
         y: point.y * scaleY,
@@ -885,8 +887,8 @@ export class ResultVisualizer {
         (t) => t.box && t.box.id === detection.id
       )
       return { detection, recognition }
-    } else if (this.mode === "table" && "cells" in this.result!) {
-      return (this.result as TableResult).cells[index]
+    } else if (this.mode === "table" && "table" in this.result!) {
+      return (this.result as TableResult).table.cells[index]
     } else if (this.mode === "layout" && "regions" in this.result!) {
       return (this.result as LayoutResult).regions[index]
     }
@@ -1051,8 +1053,8 @@ export class ResultVisualizer {
         y,
         (this.result as OCRResult).textDetection
       )
-    } else if (this.mode === "table" && "cells" in this.result!) {
-      index = this.findCellIndex(x, y, (this.result as TableResult).cells)
+    } else if (this.mode === "table" && "table" in this.result!) {
+      index = this.findCellIndex(x, y, (this.result as TableResult).table.cells)
     } else if (this.mode === "layout" && "regions" in this.result!) {
       index = this.findRegionIndex(x, y, (this.result as LayoutResult).regions)
     }
@@ -1093,8 +1095,8 @@ export class ResultVisualizer {
         y,
         (this.result as OCRResult).textDetection
       )
-    } else if (this.mode === "table" && "cells" in this.result!) {
-      index = this.findCellIndex(x, y, (this.result as TableResult).cells)
+    } else if (this.mode === "table" && "table" in this.result!) {
+      index = this.findCellIndex(x, y, (this.result as TableResult).table.cells)
     } else if (this.mode === "layout" && "regions" in this.result!) {
       index = this.findRegionIndex(x, y, (this.result as LayoutResult).regions)
     }
@@ -1156,7 +1158,7 @@ export class ResultVisualizer {
       const table = this.result as TableResult
       let currentRow = -1
 
-      table.cells.forEach((cell) => {
+      table.table.cells.forEach((cell) => {
         if (cell.row > currentRow) {
           if (currentRow >= 0) {
             textContent += "\n"
@@ -1167,7 +1169,7 @@ export class ResultVisualizer {
           textContent += " | "
         }
 
-        textContent += cell.text
+        textContent += cell.content
       })
 
       if (table.html) {
@@ -1190,53 +1192,6 @@ export class ResultVisualizer {
     }
 
     return textContent
-  }
-}
-
-/**
- * 可视化选项接口
- */
-export interface VisualizerOptions {
-  width: number
-  height: number
-  boxColor: string
-  textColor: string
-  backgroundColor: string
-  fontSize: number
-  padding: number
-  showConfidence: boolean
-  showBoxId: boolean
-  interactive: boolean
-  autoResize: boolean
-  highlightColor: string
-  lineWidth: number
-  enableAccessibility?: boolean
-  theme?: "default" | "dark" | "light" | "highContrast"
-}
-
-// 简化版可视化组件 - 轻量级
-export class LightVisualizer {
-  private container: HTMLElement
-  private options: Partial<VisualizerOptions>
-
-  constructor(container: string | HTMLElement, options?: Partial<VisualizerOptions>) {
-    this.container = typeof container === "string" 
-      ? document.getElementById(container)! 
-      : container
-    this.options = options || {}
-  }
-
-  render(result: OCRResult | TableResult | LayoutResult): void {
-    // 简单渲染实现
-    const div = document.createElement("div")
-    div.className = "paddleocr-light-result"
-    div.textContent = JSON.stringify(result, null, 2)
-    this.container.innerHTML = ""
-    this.container.appendChild(div)
-  }
-
-  clear(): void {
-    this.container.innerHTML = ""
   }
 }
 

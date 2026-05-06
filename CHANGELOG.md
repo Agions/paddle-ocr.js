@@ -52,11 +52,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `StatsManager` 已实现但未在主类中使用
 
 ### 📚 文档更新
-- ✅ **更新 `README.md`** 项目结构，反映最新架构
+- ✅ **更新 `README.md`** 项目结构图，反映最新架构
 - ✅ **更新 `docs/api.md`** 修复 `TableResult` 结构说明（`cells` → `table.cells`）
 - ✅ **更新 `docs/architecture.md`** 更新架构图，移除已删除模块引用
 
-## [0.3.0] - 2026-04-28
+### 🐛 CI 修复
+- ✅ **修复 `Constants.ts` namespace 语法** - ESLint `@typescript-eslint/no-namespace` 错误
+- 将 `export namespace Config` 改为 `export const Config` + 独立类型别名
+- CI lint 步骤现在通过（0 errors, 158 warnings）
+
+## [0.3.1-pre] - 2026-05-06
 
 ### 🎉 Major Release - OH-NO 6-Step Systematic Refactoring Complete
 

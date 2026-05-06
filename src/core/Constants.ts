@@ -192,13 +192,21 @@ export const DEFAULT_DEBUG_CONFIG = {
 // ==================== 导出配置 ====================
 
 /** 所有配置的命名空间 */
-export namespace Config {
-  export type ModelPath = keyof typeof MODEL_PATHS
-  export type DetectionThreshold = typeof DETECTION_THRESHOLDS[keyof typeof DETECTION_THRESHOLDS]
-  export type RecognitionThreshold = typeof RECOGNITION_THRESHOLDS[keyof typeof RECOGNITION_THRESHOLDS]
-  export type VisualizationTheme = typeof THEMES[keyof typeof THEMES]
-  export type DebugLevel = typeof DEBUG_LEVELS[keyof typeof DEBUG_LEVELS]
+// 使用 const 对象替代 namespace 以避免 ESLint @typescript-eslint/no-namespace 错误
+export const Config = {
+  ModelPath: {} as const,
+  DetectionThreshold: {} as const,
+  RecognitionThreshold: {} as const,
+  VisualizationTheme: {} as const,
+  DebugLevel: {} as const
 }
+
+// 类型别名
+export type ConfigModelPath = keyof typeof MODEL_PATHS
+export type ConfigDetectionThreshold = typeof DETECTION_THRESHOLDS[keyof typeof DETECTION_THRESHOLDS]
+export type ConfigRecognitionThreshold = typeof RECOGNITION_THRESHOLDS[keyof typeof RECOGNITION_THRESHOLDS]
+export type ConfigVisualizationTheme = typeof THEMES[keyof typeof THEMES]
+export type ConfigDebugLevel = typeof DEBUG_LEVELS[keyof typeof DEBUG_LEVELS]
 
 /** 默认配置对象 */
 export const DEFAULT_CONFIG = {

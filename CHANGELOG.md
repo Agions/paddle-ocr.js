@@ -5,7 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - Architecture Refactor (commit 69629ea)
+
+### 🏗️ Architecture Upgrade
+
+- **Backend abstraction**: TF/ONNX 分支硬编码（散 12 处）→ `Backend` interface + 2 实现类
+- **DI-based model sharing**: `TableRecognizer` / `LayoutAnalyzer` 通过构造器注入共享 `TextDetector` / `TextRecognizer`，DB/CRNN 模型加载从 3 次降到 1 次
+- **`VisualizerBase` 抽取**: `LightVisualizer` + `ResultVisualizer` 共享 canvas/多边形/资源释放 ~120 行（约消除 600 行重复）
+- **`LruCache<T>` 泛型**: 4 个具体缓存类 → 1 泛型 + 2 个薄包装
+- **`PaddleOcr` Facade 精简**: 511 行 → 230 行（-55%），6 个 OCR 入口模板代码 100% 消除
+- **Worker 协议修复**: identify-by-id `postMessage` race（旧版每个请求用同一字符串 key）
+
+### 📝 Naming Unification (camelCase files + PascalCase types/classes)
+
+| Before | After |
+|---|---|
+| `Constants.ts` | `constants.ts` |
+| `StatsManager.ts` | `statsManager.ts` |
+| `ModelLoader.ts` | `modelLoader.ts` |
+| `PaddleOCRFacade.ts` | `paddleOcr.ts` |
+| `BaseRecognizer.ts` | `baseRecognizer.ts` |
+| `PaddleOCROptions` | `PaddleOcrOptions` |
+| `OCRResult` / `OCRError` / `OCRImageData` | `OcrResult` / `OcrError` / `OcrImageData` |
+| `StatsManager.OCRStats` | `OcrStats`（独立导出） |
+| `resultVisualizer.ts` 1197 行 | 119 行（-90%） |
+| `lightVisualizer.ts` 789 行 | 132 行（-83%） |
+
+### 🗑️ Dead Code Removal (18 items)
+
+- Empty `Config` namespace 在 `constants.ts`
+- `LAYOUT_TYPES` 未引用常量
+- `hasWasm` / `hasWebGL` / `isWebWorker` / `getBrowserType`（含 IE 分支）未引用检测
+- `buildWasmPath` / `createModelCache` / `createImageCache` / `createResultCache` 未引用工厂
+- `ModelCache` 类（被新 `ImageCache`/`ResultCache` 取代）
+- 8 个"已废弃"字段从 `PaddleOcrOptions`: `maxSideLen` / `enableCache` / `cacheSize` / `threshold` / `batchSize` / `enableGPU` / `numThreads` / `useMultiScale` / `useAngle_cls`
+- `onProgress` 从 options 移到 `PaddleOcr.recognize()` 参数
+
+### 🔁 DRY Wins
+
+- `hashKey` / `arrayFingerprint` 共享到 `image.ts`（之前散 3 个文件）
+- `boundingBox` 单一来源 `ImageProcessor.boundingBox`
+- `runInference` 助手抽到 `BaseRecognizer`（消除 4 处 tensor 创建+dispose 重复）
+- 5 个 Recognizer 全部继承同一抽象基类（原 3/5 未继承）
+
+### 🐛 Bug Fixes
+
+- **DB/CRNN 模型重复加载** (was 3× → now 1× via DI)
+- **Worker protocol race**: `worker.ts` 现在按 `id` 关联 pending（old code 的 `type.endsWith(':success')` 与 worker 的 `recognize_result` 不匹配，调用实际是坏的）
+- **`LightVisualizer.dispose()` 内存泄漏**: 用 `arrow function class field` 后 `removeEventListener` 才能正确解绑
+
+### 📊 Metrics
+
+| Metric | v0.3.1 | v0.4.0 | Change |
+|---|---|---|---|
+| LOC | 7051 | **2057** | **-70.8%** |
+| Files | 14 | 25 | 模块边界更清晰 |
+| TS errors | 0 | **0** | ✓ |
+| jest | n/a | **10/10** | 新增测试套件 |
+| lint warnings | 158 | **9** | **-94%** |
+
+## [Unreleased] — v0.3.1 historical record
 
 ### 🏗️ Architecture Refactoring
 

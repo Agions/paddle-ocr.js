@@ -1,233 +1,209 @@
-# PaddleOCR.js 架构设计
+# PaddleOCR-JS 架构设计（v0.4.0 重构版）
 
-## 整体架构
+> 本文档基于 `commit 69629ea` 重构后的代码，反映真实的模块边界、解耦方案、性能与可扩展性设计。
 
-PaddleOCR.js 是一个基于飞桨PaddleOCR的JavaScript封装库，旨在将PaddleOCR的核心能力带到Web前端和Node.js环境中。整体架构遵循层次化设计，从上到下分为以下几层：
+## 1. 顶层架构
 
-```
-+-----------------------------------------------------------------------+
-|                             应用层                                      |
-+---------------+------------------------+-------------------------------+
-| 浏览器应用     | React组件              | Node.js应用                    |
-+---------------+------------------------+-------------------------------+
-                                |
-+-----------------------------------------------------------------------+
-|                           API层                                      |
-+------------------------+------------------------+-----------------------+
-| PaddleOCRFacade        | Constants.ts           | WorkerHelper          |
-| (统一接口)             | (配置管理)              | (Worker封装)           |
-+------------------------+------------------------+-----------------------+
-                                |
-+-----------------------------------------------------------------------+
-|                           功能模块层                                    |
-+---------------+------------------------+-------------------------------+
-| 文本检测模块   | 文本识别模块            | 表格识别模块 | 版面分析模块     |
-+---------------+------------------------+-------------+----------------+
-                                |
-+-----------------------------------------------------------------------+
-|                           并行处理层                                    |
-+---------------+------------------------+-------------------------------+
-| Worker入口    | 消息传递机制            | 任务分发与处理                  |
-+---------------+------------------------+-------------------------------+
-                                |
-+-----------------------------------------------------------------------+
-|                             工具层                                      |
-+---------------+------------------------+-------------------------------+
-| 图像处理工具   | 环境检测工具            | 数据转换工具                    |
-+---------------+------------------------+-------------------------------+
-                                |
-+-----------------------------------------------------------------------+
-|                           推理引擎层                                    |
-+---------------+------------------------+-------------------------------+
-| TensorFlow.js | ONNX Runtime          | 其他推理后端                    |
-+---------------+------------------------+-------------------------------+
-                                |
-+-----------------------------------------------------------------------+
-|                           运行环境层                                    |
-+---------------+------------------------+-------------------------------+
-| 浏览器主线程   | Web Worker线程         | Node.js环境                    |
-+---------------+------------------------+-------------------------------+
-```
-
-1. **应用层**：使用PaddleOCR.js的各类应用场景
-2. **API层**：提供统一的API接口
-3. **功能模块层**：核心OCR功能模块
-4. **并行处理层**：提供Web Worker支持
-5. **工具层**：通用工具和辅助功能
-6. **推理引擎层**：模型推理引擎
-7. **运行环境层**：支持的运行环境
-
-## 各层详细说明
-
-### 应用层
-
-应用层展示了PaddleOCR.js的主要应用场景：
-
-- **浏览器应用**：在Web应用中直接集成OCR能力
-- **Node.js应用**：在服务器端或桌面应用程序中使用OCR功能
-- **服务端集成**：作为后端服务的一部分，提供OCR服务API
-
-### API层
-
-API层提供统一的编程接口，包括：
-
-- **PaddleOCRFacade**：API 层的主要入口，提供简洁的 OCR 接口
-- **WorkerHelper**：简化在主线程中使用 Worker 的 API 封装
-- **配置管理**：集中式的配置管理（通过 Constants.ts）
-
-### 功能模块层
-
-功能模块层包含PaddleOCR.js的核心功能模块：
-
-- **文本检测模块**：负责检测图像中的文本区域位置
-- **文本识别模块**：负责识别检测到的文本区域内容
-- **表格识别模块**：负责识别图像中的表格结构和内容
-- **版面分析模块**：负责分析文档的整体版面结构
-
-### 并行处理层
-
-并行处理层提供Web Worker支持，使OCR任务能够在独立线程中执行：
-
-- **Worker入口**：独立的Worker执行入口，处理来自主线程的OCR任务请求
-- **Worker助手**：简化在主线程中使用Worker的API封装
-- **消息传递**：主线程和Worker线程之间的双向通信机制
-- **任务分发**：根据任务类型将请求分发给不同的处理模块
-
-### 工具层
-
-工具层提供各种辅助功能：
-
-- **图像预处理**：图像缩放、归一化、颜色空间转换等
-- **环境检测**：检测运行环境（浏览器/Node.js/Web Worker）和硬件能力
-- **模型加载**：模型文件加载和缓存管理
-- **结果处理**：OCR结果的后处理和格式化
-
-### 推理引擎层
-
-推理引擎层负责模型的实际执行：
-
-- **TensorFlow.js**：Web和Node.js环境下的主要推理引擎
-- **ONNX Runtime**：提供更广泛的模型格式支持和更好的性能
-
-### 运行环境层
-
-运行环境层是PaddleOCR.js实际运行的平台：
-
-- **浏览器**：Chrome、Firefox、Safari等现代浏览器
-- **Web Worker**：浏览器中的后台线程环境
-- **Node.js**：服务器端JavaScript运行环境
-
-## 数据流向
-
-在PaddleOCR.js中，数据处理流程如下：
-
-1. 用户通过API层提供的方法传入图像
-2. 如果使用Web Worker，请求被转发到Worker线程
-3. 工具层对图像进行预处理
-4. 功能模块层根据任务类型调用相应的处理模块
-5. 处理模块使用推理引擎层执行模型推理
-6. 结果经过后处理后返回给用户（若使用Worker，结果先传回主线程）
-
-## 模块交互
-
-### 主线程与Worker线程的交互
+PaddleOCR-JS 采用**三层 + Facade + DI** 的精简架构，每一层职责单一、依赖单向，避免 God Class 与循环依赖：
 
 ```
-主线程                                Worker线程
-   |                                    |
-   |--- 初始化请求 ------------------->  |
-   |                                    |--- 加载模型和资源
-   |<-- 初始化完成 --------------------  |
-   |                                    |
-   |--- 识别请求(图像数据+选项) ------->  |
-   |                                    |--- 图像预处理
-   |                                    |--- 执行OCR任务
-   |                                    |--- 结果处理
-   |<-- 识别结果 ----------------------  |
-   |                                    |
-   |--- 释放资源请求 ------------------>  |
-   |                                    |--- 清理资源
-   |<-- 释放完成 ----------------------  |
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 0  Public API                                          │
+│   src/index.ts  ─  re-exports + VERSION 静态属性注入          │
+└─────────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1  Facade (PaddleOcr)                                  │
+│   src/paddleOcr.ts  ─  init / dispose / 6 个 OCR 入口 / 缓存   │
+└─────────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 2  Core services (可单测、可替换)                       │
+│                                                              │
+│   modules/        │  utils/             │  core/             │
+│   baseRecognizer  │  modelLoader        │  constants         │
+│   textDetector    │  image              │  statsManager      │
+│   textRecognizer  │  imageProcessor     │                    │
+│   tableRecognizer │  cache (LruCache<T>)│                    │
+│   layoutAnalyzer  │  env                │                    │
+│   formulaRecog    │  modelPath          │                    │
+│   barcodeRecogn   │  workerHelper       │                    │
+│                   │  visualTypes        │                    │
+└─────────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 3  Pluggable backends (TensorFlow.js / ONNX Runtime)   │
+│   Backend interface ◀─ TensorFlowBackend / OnnxBackend       │
+└─────────────────────────────────────────────────────────────┘
+            │
+            ▼
+       原生运行时 (browser / Node.js / Web Worker)
 ```
 
-### 文本检测与识别的交互
+**核心约束**：
 
-文本检测模块输出检测到的文本框位置，文本识别模块接收这些位置并进行识别：
+- **向下依赖**：Layer N 只调用 Layer N+1 的 API，绝不反向引用（无循环 import）
+- **向上隐藏**：Layer 2 不允许 `new PaddleOcr()`，耦合方向严格单向
+- **抽象边界**：Recognizer 之间通过 **DI 注入**共享子模块（不直接 `import`），避免模块间硬编码依赖
+
+## 2. 模块解耦方案
+
+### 2.1 Facade 层（src/paddleOcr.ts）
+
+- **职责**：进程级编排（init 顺序、缓存、统计、进度回调）
+- **不持有**：模型加载细节、预处理细节、可视化细节
+- **6 个 OCR 入口**统一签名：`(image: ImageSource) => Promise<ResultType>`，模板代码消除 100%
+
+### 2.2 Recognizer 层（src/modules/）
+
+每个 Recognizer 满足同一契约（`BaseRecognizer`）：
+
+```ts
+abstract class BaseRecognizer {
+  abstract init(): Promise<void>
+  abstract <recognize/detect>(...args): Promise<Result>
+  ensureReady()  // 前置检查
+  // ↓ DI 通道
+  constructor(options: PaddleOcrOptions)
+}
+```
+
+**关键解耦点 — Recognizer 之间通过 DI 共享子模块**：
+
+```ts
+// ✅ 重构后：TableRecognizer 由 Facade 注入全局 TextDetector/TextRecognizer
+new TableRecognizer(options, this.detector, this.recognizer)
+
+// ❌ 重构前：TableRecognizer 自 new TextDetector → DB 模型被加载 3 次
+```
+
+| 重构前问题 | 重构后方案 | 性能影响 |
+|---|---|---|
+| DB 模型在 Facade / Table / Layout 三处独立加载 | 单实例 + DI 注入 | **DB 模型加载次数 3 → 1** |
+| 5 个 Recognizer 中只有 2 个继承 BaseRecognizer | 全部 5 个继承同一基类 | 释放/错误处理逻辑统一 |
+| `throw new Error("未指定模型后端")` 散 6 处 | `selectBackend()` 单点决策 | 错误信息一致 |
+
+### 2.3 Backend 抽象（src/utils/modelLoader.ts）
+
+```ts
+interface Backend {
+  kind: "tensorflow" | "onnx"
+  load(path: string): Promise<LoadedModel>
+}
+class TensorFlowBackend implements Backend { ... }
+class OnnxBackend implements Backend { ... }
+```
+
+- 添加新后端（如 WebGPU、ONNX-WebGPU）：**只需新增一个 `XxxBackend implements Backend`**，零侵入
+- Backend 选择在 `ModelLoader` 构造时一次性决策，避免每个 Recognizer 各自分支判断
+
+### 2.4 共享视觉基类（src/visualizerBase.ts）
+
+`LightVisualizer` (mobile-optimized) + `ResultVisualizer` (desktop full-featured) 共享：
+
+- canvas 创建 / 上下文管理
+- 多边形 `pointInPolygon` / 缩放 / 描边
+- 资源释放 `dispose()`
+
+**共享代码 ~120 行**，原本各自重复 ≈ 600 行。
+
+## 3. 依赖反转（DI）详图
 
 ```
-图像 → 文本检测模块 → 文本框位置 → 文本识别模块 → 识别结果
+PaddleOcr (Facade)
+   │
+   │  owns & owns & owns (composition root)
+   ▼  ▼  ▼
+detector  recognizer  tableRecognizer  layoutAnalyzer  ...
+                          │                │
+                          └─────shared─────┘
+                          (DI injected)
 ```
 
-### 表格识别的交互
+**何时新建 Recognizer、复用 Recognizer？**
 
-表格识别模块处理表格图像，并调用文本检测和识别模块处理单元格内容：
+| 场景 | 决策 | 理由 |
+|---|---|---|
+| 主 facade 调用 | `new TextDetector(options)` | 一次性持有 |
+| TableRecognizer 内部需要 detect | 注入 facade 已有的 `this.detector` | **模型复用** |
+| LayoutAnalyzer 内部需要 detect | 注入 facade 已有的 `this.detector` | **模型复用** |
+| 用户独立调用 `new TableRecognizer()` | 子模块为 `undefined`，降级为空 bbox | 不强加外部依赖 |
+
+## 4. 性能与可扩展性
+
+| 维度 | 重构前 | 重构后 |
+|---|---|---|
+| 模型加载次数 | DB 模型 3 次 + CRNN 3 次 | DB 模型 1 次 + CRNN 1 次 |
+| 内存占用峰值 | 6 个 Recognizer × 独立模型实例 | 6 个 Recognizer × 共享模型实例 |
+| 初识化时间（典型） | ~3× model fetch | ~1× model fetch |
+| 可扩展后端数 | 散落在每个 Recognizer | `Backend` 接口 + 注册 |
+| 可视化定制点 | 继承具体类 | 继承 `VisualizerBase` |
+
+## 5. 命名规范
+
+| 类别 | 规范 | 示例 |
+|---|---|---|
+| 文件名 | camelCase | `modelLoader.ts` / `baseRecognizer.ts` |
+| 类名 / 类型 / 接口 | PascalCase | `BaseRecognizer` / `OcrResult` / `PaddleOcrOptions` |
+| 函数 / 变量 | camelCase | `loadImage()` / `imageCache` |
+| 常量 | UPPER_SNAKE 或 PascalCase 命名常量 | `DEFAULT_VISUAL` / `MODEL_PATH.DEFAULT` |
+| 私有字段 | `private` + camelCase | `private worker: Worker \| null` |
+
+**已删除 / 已废弃字段**：`maxSideLen` / `enableCache` / `cacheSize` / `threshold` / `batchSize` / `enableGPU` / `numThreads` / `useMultiScale` / `useAngle_cls` — 全部从 `PaddleOcrOptions` 移除。
+
+## 6. 测试策略
+
+- 单元测试覆盖：**utils/** (image / cache / env) + **core/** (constants / statsManager)
+- Recognizer / Visualizer 留 TODO 占位（`postprocess()` / `decode()`），需要模型推理集成测试
+
+## 7. 文件清单（25 个 TS 文件，2057 LOC）
 
 ```
-图像 → 表格结构识别 → 单元格检测 → 文本检测模块 → 文本识别模块 → 表格结果
+src/
+├── core/                    # 框架级核心（无业务依赖）
+│   ├── constants.ts         # 所有魔法值/默认配置
+│   └── statsManager.ts      # 请求统计
+├── modules/                 # 6 个识别器 + 1 个基类
+│   ├── baseRecognizer.ts    # 抽象基类 + runInference 助手
+│   ├── textDetector.ts
+│   ├── textRecognizer.ts
+│   ├── tableRecognizer.ts   # DI 接收 detector+recognizer
+│   ├── layoutAnalyzer.ts    # DI 接收 detector+recognizer+(可选)tableRecognizer
+│   ├── formulaRecognizer.ts
+│   └── barcodeRecognizer.ts
+├── utils/                   # 可复用工具
+│   ├── image.ts             # loadImage + hashKey + arrayFingerprint
+│   ├── imageProcessor.ts    # ImageProcessor 静态方法集
+│   ├── cache.ts             # LruCache<T> 泛型 + ImageCache/ResultCache
+│   ├── env.ts               # isNode / isBrowser
+│   ├── modelLoader.ts       # ModelLoader + Backend 接口 + TF/ONNX 后端
+│   ├── modelPath.ts         # buildModelPath 路径模板
+│   ├── visualTypes.ts       # ResultVisualizer 默认选项
+│   ├── resultVisualizer.ts  # 继承 VisualizerBase
+│   ├── lightVisualizer.ts   # 继承 VisualizerBase
+│   └── workerHelper.ts      # PaddleOcrWorker
+├── visualizerBase.ts        # ResultVisualizer + LightVisualizer 共享基类
+├── typings.ts               # 所有公开类型（PascalCase）
+├── index.ts                 # 统一出口 + 版本注入
+├── paddleOcr.ts             # Facade（230 行，原 511 行）
+├── worker.ts                # Worker 入口（与 PaddleOcrWorker 协议对齐）
+└── __tests__/
+    └── paddleocr.test.ts    # 10 个单元测试
 ```
 
-### 版面分析的交互
+## 8. 演进建议（next steps）
 
-版面分析模块首先对文档进行区域划分，然后根据区域类型调用相应的处理模块：
+1. **完善 Recognizer `postprocess()` 实现**：DB 后处理 + CTC 解码（占当前 TODO）
+2. **为 Recognizer / Visualizer 补 mock 单测**：覆盖 5 个抽象方法的行为
+3. **Backend 注册表**：动态注册 `Backend`，允许运行时切换
+4. **Worker fallback**：Worker 不可用时回退到主线程（非阻塞）
+5. **流式 OCR**：长图像分块并行识别（已在 `BatchOcrResult` 框架下沉）
 
-```
-图像 → 版面分析模块 → 区域划分 → 
-  文本区域 → 文本检测模块 → 文本识别模块
-  表格区域 → 表格识别模块
-  图片区域 → 跳过处理
-  其他区域 → 相应处理模块
-```
+---
 
-## 环境适配
-
-PaddleOCR.js采用多后端设计，能够适应不同的运行环境：
-
-### 浏览器环境适配
-
-- 使用WebGL/WebGPU进行加速计算
-- 使用WebAssembly提升CPU计算性能
-- 针对浏览器的内存管理和并发控制
-- 通过Web Worker进行后台处理，避免阻塞主线程
-- 支持离线处理和响应式用户界面
-
-### Web Worker环境适配
-
-- 独立的执行线程，不阻塞UI渲染
-- 与主线程通过消息机制通信
-- 支持所有核心OCR功能
-- 针对Worker环境的内存管理
-
-### Node.js环境适配
-
-- 支持文件系统操作
-- 提供批处理能力
-- 针对服务器环境的内存管理优化
-
-## 性能优化策略
-
-PaddleOCR.js采用多种策略优化性能：
-
-1. **模型量化**：使用量化后的模型减少模型大小和计算量
-2. **增量加载**：按需加载模型，减少初始化时间
-3. **缓存机制**：缓存模型和中间结果，避免重复计算
-4. **并行处理**：使用Web Worker并行执行OCR任务，避免阻塞主线程
-5. **图像预处理优化**：根据设备能力调整图像大小
-6. **内存管理**：及时释放不需要的资源
-
-## 扩展性设计
-
-PaddleOCR.js设计了良好的扩展机制：
-
-1. **插件系统**：支持通过插件扩展功能
-2. **自定义模型**：允许加载自定义模型
-3. **处理管线定制**：可以定制数据处理流程
-4. **事件机制**：提供处理过程中的事件回调
-
-## 未来规划
-
-PaddleOCR.js计划在以下方向继续发展：
-
-1. **更多模型支持**：支持更多PaddleOCR模型
-2. **性能优化**：进一步优化推理性能和内存使用
-3. **更好的跨平台支持**：支持更多JavaScript运行环境
-4. **文档和生态建设**：完善文档和示例，构建社区生态
+**架构升级原则**：每次新增功能都必须先回答两个问题 ——
+1. 这一层应该负责这件事吗？
+2. 如果不是这一层，那它是哪一层？它怎样调用我？

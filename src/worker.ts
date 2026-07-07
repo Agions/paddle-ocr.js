@@ -1,84 +1,41 @@
-import { PaddleOCR } from "./PaddleOCRFacade"
-import { OCRResult, TableResult, LayoutResult, ProcessOptions } from "./typings"
-
-// Worker 上下文
-const ctx: Worker = self as any
-
-// 全局 OCR 实例（复用，避免每次请求都创建新实例）
-let ocrInstance: PaddleOCR | null = null
-let ocrOptions: any = null
-
 /**
- * 获取或创建 OCR 实例
+ * OCR Worker 入口（与 PaddleOcrWorker 协议匹配）
  */
-async function getOCRInstance(options?: any): Promise<PaddleOCR> {
-  // 如果选项变化，需要重新初始化
-  if (ocrInstance && ocrOptions && JSON.stringify(ocrOptions) === JSON.stringify(options)) {
-    return ocrInstance
-  }
 
-  // 销毁旧实例
-  if (ocrInstance) {
-    await ocrInstance.dispose()
-    ocrInstance = null
-  }
+import { PaddleOcr } from "./paddleOcr"
+import type { PaddleOcrOptions, OcrResult, TableResult, LayoutResult, ImageSource, ProcessOptions } from "./typings"
 
-  // 创建新实例
-  ocrInstance = new PaddleOCR(options || {})
-  await ocrInstance.init()
-  ocrOptions = options
+let ocr: PaddleOcr | null = null
+let lastOptions: PaddleOcrOptions | null = null
 
-  return ocrInstance
+async function getOcr(options?: PaddleOcrOptions): Promise<PaddleOcr> {
+  if (ocr && JSON.stringify(lastOptions) === JSON.stringify(options)) return ocr
+  if (ocr) { await ocr.dispose(); ocr = null }
+  ocr = new PaddleOcr(options ?? {})
+  await ocr.init()
+  lastOptions = options ?? null
+  return ocr
 }
 
-// 处理消息
-self.onmessage = async (e: MessageEvent) => {
-  const { type, payload } = e.data
+interface BaseReq { id: string; type: string; data: { options?: PaddleOcrOptions; image?: ImageSource; processOptions?: ProcessOptions } }
 
+self.onmessage = async (e: MessageEvent<BaseReq>): Promise<void> => {
+  const { type, id, data } = e.data
+  const ocrOptions = data.options
+  const image = data.image
+  const processOptions = data.processOptions
   try {
+    const inst = await getOcr(ocrOptions)
+    let result: unknown
     switch (type) {
-      case "recognize":
-        {
-          const ocr = await getOCRInstance(payload.options)
-          const result = await ocr.recognize(payload.image, payload.options)
-          self.postMessage({ type: "recognize_result", result })
-        }
-        break
-
-      case "recognizeTable":
-        {
-          const ocr = await getOCRInstance(payload.options)
-          const result = await ocr.recognizeTable(payload.image, payload.options)
-          self.postMessage({ type: "recognize_table_result", result })
-        }
-        break
-
-      case "analyzeLayout":
-        {
-          const ocr = await getOCRInstance(payload.options)
-          const result = await ocr.analyzeLayout(payload.image, payload.options)
-          self.postMessage({ type: "analyze_layout_result", result })
-        }
-        break
-
-      case "dispose":
-        {
-          if (ocrInstance) {
-            await ocrInstance.dispose()
-            ocrInstance = null
-            ocrOptions = null
-          }
-          self.postMessage({ type: "dispose_complete" })
-        }
-        break
-
-      default:
-        self.postMessage({ type: "error", error: `未知消息类型: ${type}` })
+      case "init": result = { initialized: true }; break
+      case "recognize": result = await inst.recognize(image!, processOptions) as OcrResult; break
+      case "recognizeTable": result = await inst.recognizeTable(image!) as TableResult; break
+      case "analyzeLayout": result = await inst.analyzeLayout(image!) as LayoutResult; break
+      case "dispose": await inst.dispose(); ocr = null; lastOptions = null; break
     }
+    (self as unknown as Worker).postMessage({ id, type: `${type}:success`, data: result })
   } catch (error) {
-    self.postMessage({
-      type: "error",
-      error: error instanceof Error ? error.message : String(error),
-    })
+    (self as unknown as Worker).postMessage({ id, type: `${type}:error`, data: { message: String(error) } })
   }
 }

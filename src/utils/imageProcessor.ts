@@ -1,176 +1,68 @@
-import { OCRImageData as ImageData } from "./image"
-import { Point, ImageSource } from "../typings"
-
 /**
- * 通用图像处理工具类
- * 统一提供预处理、裁剪、归一化等操作
- * 消除各个模块之间的重复代码
+ * 通用图像处理工具
  */
+
+import { ImageSource, OcrImageData, Point } from "../typings"
+import { arrayFingerprint, hashKey } from "./image"
+
 export class ImageProcessor {
-  /**
-   * 标准化预处理：将图像数据转换为模型输入格式
-   * @param image 输入图像
-   * @param options 预处理选项
-   */
-  public static preprocess(
-    image: ImageData,
-    options: {
-      toFloat32?: boolean
-      normalize?: boolean
-      scaleX?: number
-      scaleY?: number
-    } = {}
-  ): { data: Float32Array | Uint8Array | Uint8ClampedArray; width: number; height: number; scaleX: number; scaleY: number } {
-    const { toFloat32 = true, normalize = false, scaleX = 1, scaleY = 1 } = options
-
-    let processedData: Float32Array | Uint8Array | Uint8ClampedArray
-
-    if (toFloat32) {
-      // Uint8ClampedArray 需要先转换为普通数组再创建 Float32Array
-      const rawData = image.data instanceof Uint8ClampedArray
-        ? new Uint8Array(image.data.buffer)
-        : image.data
-      processedData = new Float32Array(rawData)
-      if (normalize) {
-        for (let i = 0; i < processedData.length; i++) {
-          processedData[i] = processedData[i] / 255.0
-        }
-      }
-    } else {
-      processedData = image.data
-    }
-
-    return {
-      data: processedData,
-      width: image.width,
-      height: image.height,
-      scaleX,
-      scaleY,
-    }
+  /** 预处理：转 Float32 + 可选 /255 归一化 */
+  static preprocess(image: OcrImageData, normalize = true): { data: Float32Array; width: number; height: number } {
+    const raw = image.data instanceof Uint8ClampedArray
+      ? new Uint8Array(image.data.buffer)
+      : image.data
+    const out = new Float32Array(raw.length)
+    const k = normalize ? 1 / 255 : 1
+    for (let i = 0; i < raw.length; i++) out[i] = raw[i] * k
+    return { data: out, width: image.width, height: image.height }
   }
 
-  /**
-   * 从图像中按多边形点裁剪区域
-   * @param image 源图像
-   * @param points 多边形顶点坐标
-   * @returns 裁剪后的图像数据
-   */
-  public static cropRegion(image: ImageData, points: Point[]): ImageData {
-    if (!points || points.length < 3) {
-      throw new Error("裁剪区域需要至少3个点构成有效多边形")
-    }
-
-    // 计算边界框
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-
-    for (const point of points) {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
-    }
-
-    // 确保坐标在图像范围内
-    minX = Math.max(0, Math.floor(minX))
-    minY = Math.max(0, Math.floor(minY))
-    maxX = Math.min(image.width - 1, Math.ceil(maxX))
-    maxY = Math.min(image.height - 1, Math.ceil(maxY))
-
-    const width = maxX - minX + 1
-    const height = maxY - minY + 1
-
-    if (width <= 0 || height <= 0) {
-      throw new Error("裁剪区域无效：宽度或高度为0")
-    }
-
-    // 检查是否为退化区域（所有点同一位置）
-    if (width === 1 && height === 1 && points.length > 1) {
-      throw new Error("裁剪区域无效：退化多边形（所有点重合）")
-    }
-
-    // 创建新的图像数据
-    const regionData = new Uint8Array(width * height * 4)
-
-    // 从原图复制像素
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const srcIdx = ((minY + y) * image.width + (minX + x)) * 4
-        const dstIdx = (y * width + x) * 4
-
-        regionData[dstIdx] = image.data[srcIdx]       // R
-        regionData[dstIdx + 1] = image.data[srcIdx + 1] // G
-        regionData[dstIdx + 2] = image.data[srcIdx + 2] // B
-        regionData[dstIdx + 3] = image.data[srcIdx + 3] // A
+  /** 多边形裁剪 → RGBA 图像 */
+  static cropRegion(image: OcrImageData, points: Point[]): OcrImageData {
+    if (points.length < 3) throw new Error("cropRegion: need >= 3 points")
+    const box = ImageProcessor.boundingBox(points)
+    const x0 = Math.max(0, Math.floor(box.minX))
+    const y0 = Math.max(0, Math.floor(box.minY))
+    const x1 = Math.min(image.width - 1, Math.ceil(box.maxX))
+    const y1 = Math.min(image.height - 1, Math.ceil(box.maxY))
+    const w = x1 - x0 + 1
+    const h = y1 - y0 + 1
+    if (w <= 0 || h <= 0) throw new Error("cropRegion: invalid area")
+    const out = new Uint8Array(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const si = ((y0 + y) * image.width + (x0 + x)) * 4
+        const di = (y * w + x) * 4
+        out[di] = image.data[si]
+        out[di + 1] = image.data[si + 1]
+        out[di + 2] = image.data[si + 2]
+        out[di + 3] = image.data[si + 3]
       }
     }
-
-    return { width, height, data: regionData }
+    return { width: w, height: h, data: out }
   }
 
-  /**
-   * 计算多边形边界框
-   * @param points 多边形顶点
-   */
-  public static getBoundingBox(points: Point[]): { minX: number; minY: number; maxX: number; maxY: number } {
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-
-    for (const point of points) {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
+  /** 多边形边界盒 */
+  static boundingBox(points: Point[]): { minX: number; minY: number; maxX: number; maxY: number } {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const p of points) {
+      if (p.x < minX) minX = p.x
+      if (p.y < minY) minY = p.y
+      if (p.x > maxX) maxX = p.x
+      if (p.y > maxY) maxY = p.y
     }
-
     return { minX, minY, maxX, maxY }
   }
 
-  /**
-   * 生成缓存键
-   * @param source 图像源标识
-   * @param options 处理选项
-   */
-  public static generateCacheKey(
-    source: ImageSource | string | Uint8Array,
-    options?: { width?: number; height?: number; threshold?: number; mode?: string }
-  ): string {
-    // 将各种类型统一转换为字符串
-    let sourceStr: string
-    if (typeof source === "string") {
-      sourceStr = source
-    } else if (source instanceof Uint8Array) {
-      sourceStr = this.arrayToString(source)
-    } else if (source instanceof ArrayBuffer) {
-      sourceStr = this.arrayToString(new Uint8Array(source))
-    } else if (Buffer.isBuffer(source)) {
-      sourceStr = source.toString("base64")
-    } else if (source && typeof source === "object" && "data" in source) {
-      // 像素数据对象
-      sourceStr = this.arrayToString(source.data as Uint8Array)
-    } else {
-      sourceStr = String(source)
-    }
-    
-    const hash = this.simpleHash(sourceStr)
-    return `img_${hash}_${options?.width || 0}x${options?.height || 0}_${options?.mode || "default"}`
-  }
-
-  private static simpleHash(str: string): string {
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i)
-      hash = (hash << 5) - hash + char
-      hash = hash & hash
-    }
-    return Math.abs(hash).toString(36)
-  }
-
-  private static arrayToString(arr: Uint8Array): string {
-    return Array.from(arr).slice(0, 1000).join(",")
+  /** 稳定缓存键 */
+  static cacheKey(source: ImageSource | string | Uint8Array, opts?: { width?: number; height?: number; mode?: string }): string {
+    let s: string
+    if (typeof source === "string") s = source
+    else if (source instanceof Uint8Array) s = arrayFingerprint(source)
+    else if (source instanceof ArrayBuffer) s = arrayFingerprint(new Uint8Array(source))
+    else if (typeof Buffer !== "undefined" && Buffer.isBuffer(source)) s = (source as Buffer).toString("base64")
+    else if (source && typeof source === "object" && "data" in source) s = arrayFingerprint(source.data as Uint8Array)
+    else s = String(source)
+    return `img_${hashKey(s)}_${opts?.width ?? 0}x${opts?.height ?? 0}_${opts?.mode ?? "default"}`
   }
 }

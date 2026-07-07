@@ -2,58 +2,37 @@
  * PaddleOCR-JS 统一导出入口
  */
 
-import { PaddleOCR } from "./PaddleOCRFacade"
-import { PaddleOCRWorker } from "./utils/workerHelper"
+import { PaddleOcr } from "./paddleOcr"
+import { PaddleOcrWorker } from "./utils/workerHelper"
 import { ResultVisualizer } from "./utils/resultVisualizer"
 import { LightVisualizer } from "./utils/lightVisualizer"
+import { MODEL_PATH } from "./core/constants"
 
-// 版本号
-const VERSION = "0.3.0"
+const VERSION = "0.4.0"
 
-// 扩展 PaddleOCR 静态属性
-Object.defineProperties(PaddleOCR, {
-  version: {
-    value: VERSION,
-    writable: false,
-  },
-  WorkerHelper: {
-    value: PaddleOCRWorker,
-    writable: false,
-  },
-  ResultVisualizer: {
-    value: ResultVisualizer,
-    writable: false,
-  },
-  LightVisualizer: {
-    value: LightVisualizer,
-    writable: false,
-  },
+Object.defineProperties(PaddleOcr, {
+  version: { value: VERSION, writable: false },
+  workerHelper: { value: PaddleOcrWorker, writable: false },
+  ResultVisualizer: { value: ResultVisualizer, writable: false },
+  LightVisualizer: { value: LightVisualizer, writable: false },
+  MODEL_PATH: { value: MODEL_PATH, writable: false },
 })
 
-// 导出所有类型
 export * from "./typings"
-
-// 导出组件
 export { TextDetector } from "./modules/textDetector"
 export { TextRecognizer } from "./modules/textRecognizer"
 export { TableRecognizer } from "./modules/tableRecognizer"
 export { LayoutAnalyzer } from "./modules/layoutAnalyzer"
 export { FormulaRecognizer } from "./modules/formulaRecognizer"
 export { BarcodeRecognizer } from "./modules/barcodeRecognizer"
-
-// 导出工具
-export { ModelCache, ImageCache, ResultCache } from "./utils/cache"
+export { ImageCache, ResultCache } from "./utils/cache"
+export { ImageProcessor } from "./utils/imageProcessor"
 export { loadImage } from "./utils/image"
+export { ModelLoader } from "./utils/modelLoader"
 export { isNode, isBrowser } from "./utils/env"
 export { ResultVisualizer } from "./utils/resultVisualizer"
 export { LightVisualizer } from "./utils/lightVisualizer"
-export { ImageProcessor } from "./utils/imageProcessor"
-
-// 导出核心管理器
-export { StatsManager } from "./core/StatsManager"
-
-// 导出主类
-export { PaddleOCR }
-
-// 导出默认
-export default PaddleOCR
+export { PaddleOcrWorker } from "./utils/workerHelper"
+export { StatsManager } from "./core/statsManager"
+export { PaddleOcr }
+export default PaddleOcr

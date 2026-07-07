@@ -1,388 +1,70 @@
-import { PaddleOCROptions, LayoutResult, Point } from "../typings"
-import { OCRImageData as ImageData } from "../utils/image"
-import { ImageProcessor } from "../utils/imageProcessor"
-import { TextDetector } from "./textDetector"
-import { TextRecognizer } from "./textRecognizer"
-import { TableRecognizer } from "./tableRecognizer"
-import { ModelLoader } from "../utils/ModelLoader"
-
 /**
- * 版面分析类
- * 负责分析文档的布局结构
+ * 版面分析（PP-Layout）
+ * 通过 DI 共享 TextDetector/TextRecognizer/TableRecognizer
  */
-export class LayoutAnalyzer {
-  private options: PaddleOCROptions
-  private modelLoader: ModelLoader
-  private model: any = null
-  private textDetector: TextDetector | null = null
-  private textRecognizer: TextRecognizer | null = null
-  private tableRecognizer: TableRecognizer | null = null
-  private isInitialized = false
 
-  // 版面类型映射
-  private static readonly LAYOUT_TYPES = [
-    "text", // 0: 文本
-    "title", // 1: 标题
-    "figure", // 2: 图形/图片
-    "table", // 3: 表格
-    "header", // 4: 页眉
-    "footer", // 5: 页脚
-    "reference", // 6: 参考文献
-    "equation", // 7: 公式
-    "comment", // 8: 注释
-  ]
+import type { LayoutRegion, LayoutResult, OcrImageData, PaddleOcrOptions, Point, TextBox, TextLine } from "../typings"
+import { BaseRecognizer } from "./baseRecognizer"
+import { ImageProcessor } from "../utils/imageProcessor"
 
-  /**
-   * 创建版面分析器实例
-   * @param options 配置选项
-   */
-  constructor(options: PaddleOCROptions) {
-    this.options = {
-      ...options,
-      // 确保版面分析所需的配置项
-      enableLayout: true,
-    }
-    this.modelLoader = new ModelLoader(this.options)
+export class LayoutAnalyzer extends BaseRecognizer {
+  /** DI 共享 */
+  constructor(
+    options: PaddleOcrOptions,
+    private textDetector?: { detect(image: OcrImageData): Promise<TextBox[]> },
+    private textRecognizer?: { recognize(image: OcrImageData, boxes?: TextBox[]): Promise<TextLine[]> },
+    private tableRecognizer?: { recognize(image: OcrImageData): Promise<unknown> },
+  ) {
+    super(options)
   }
 
-  /**
-   * 初始化版面分析模型
-   */
-  public async init(): Promise<void> {
-    if (this.isInitialized) {
-      return
-    }
-
-    try {
-      // 使用 ModelLoader 统一加载模型
-      this.model = await this.modelLoader.loadLayoutModel()
-
-      // 初始化文本检测和识别模块
-      if (!this.textDetector) {
-        this.textDetector = new TextDetector(this.options)
-        await this.textDetector.init()
-      }
-
-      if (!this.textRecognizer) {
-        this.textRecognizer = new TextRecognizer(this.options)
-        await this.textRecognizer.init()
-      }
-
-      // 如果启用了表格识别，则初始化表格模型
-      if (this.options.enableTable && !this.tableRecognizer) {
-        this.tableRecognizer = new TableRecognizer(this.options)
-        await this.tableRecognizer.init()
-      }
-
-      this.isInitialized = true
-    } catch (error) {
-      console.error("版面分析模型初始化失败:", error)
-      throw error
-    }
+  async init(): Promise<void> {
+    if (this.isInitialized) return
+    await this.modelLoader.load({ type: "layout" })
+    this.isInitialized = true
   }
 
-  /**
-   * 分析版面布局
-   * @param image 输入图像
-   */
-  public async analyze(image: ImageData): Promise<LayoutResult> {
-    if (!this.isInitialized) {
-      await this.init()
-    }
-
-    try {
-      // 预处理图像
-      const processedImage = this.preprocess(image)
-
-      // 执行版面分析
-      const layoutRegions = await this.detectLayoutRegions(processedImage)
-
-      // 对各个区域进行识别处理
-      const result = await this.processRegions(image, layoutRegions)
-
-      return result
-    } catch (error) {
-      console.error("版面分析失败:", error)
-      throw error
-    }
-  }
-
-  /**
-   * 图像预处理
-   */
-  private preprocess(image: ImageData): any {
-    return ImageProcessor.preprocess(image)
-  }
-
-  /**
-   * 检测版面区域
-   */
-  private async detectLayoutRegions(processedImage: any): Promise<any[]> {
-    console.log("检测版面区域...")
-
-    // 根据模型后端选择相应的处理方式
-    if (this.options.useTensorflow) {
-      return await this.detectRegionsWithTensorflow(processedImage)
-    } else if (this.options.useONNX) {
-      return await this.detectRegionsWithONNX(processedImage)
-    } else {
-      throw new Error("未指定模型后端")
-    }
-  }
-
-  /**
-   * 使用TensorFlow检测版面区域
-   */
-  private async detectRegionsWithTensorflow(
-    processedImage: any
-  ): Promise<any[]> {
-    const tf = require("@tensorflow/tfjs")
-    const input = tf
-      .tensor(processedImage.data)
-      .reshape([1, processedImage.height, processedImage.width, 3])
-
-    // 执行模型推理
-    const result = await this.model.predict(input)
-
-    // 释放张量
-    input.dispose()
-
-    // 模拟版面区域检测结果
-    const { width, height } = processedImage
-
-    // 生成一些模拟区域（实际应该从模型输出中解析）
-    const regions = [
-      {
-        type: "title",
-        box: [
-          { x: 0.1 * width, y: 0.05 * height },
-          { x: 0.9 * width, y: 0.05 * height },
-          { x: 0.9 * width, y: 0.15 * height },
-          { x: 0.1 * width, y: 0.15 * height },
-        ],
-        score: 0.95,
-      },
-      {
-        type: "text",
-        box: [
-          { x: 0.1 * width, y: 0.2 * height },
-          { x: 0.45 * width, y: 0.2 * height },
-          { x: 0.45 * width, y: 0.6 * height },
-          { x: 0.1 * width, y: 0.6 * height },
-        ],
-        score: 0.92,
-      },
-      {
-        type: "figure",
-        box: [
-          { x: 0.55 * width, y: 0.2 * height },
-          { x: 0.9 * width, y: 0.2 * height },
-          { x: 0.9 * width, y: 0.5 * height },
-          { x: 0.55 * width, y: 0.5 * height },
-        ],
-        score: 0.88,
-      },
-      {
-        type: "table",
-        box: [
-          { x: 0.2 * width, y: 0.65 * height },
-          { x: 0.8 * width, y: 0.65 * height },
-          { x: 0.8 * width, y: 0.9 * height },
-          { x: 0.2 * width, y: 0.9 * height },
-        ],
-        score: 0.91,
-      },
-    ]
-
-    return regions
-  }
-
-  /**
-   * 使用ONNX检测版面区域
-   */
-  private async detectRegionsWithONNX(processedImage: any): Promise<any[]> {
-    // 准备ONNX输入
-    const input = new Float32Array(processedImage.data)
-    const inputTensor = new (require("onnxruntime-web").Tensor)(
-      "float32",
-      input,
-      [1, 3, processedImage.height, processedImage.width]
-    )
-
-    // 运行推理
-    const feeds = { input: inputTensor }
-    const results = await this.model.run(feeds)
-
-    // 模拟版面区域检测结果（与TensorFlow部分相同）
-    const { width, height } = processedImage
-
-    // 生成一些模拟区域（实际应该从模型输出中解析）
-    const regions = [
-      {
-        type: "title",
-        box: [
-          { x: 0.1 * width, y: 0.05 * height },
-          { x: 0.9 * width, y: 0.05 * height },
-          { x: 0.9 * width, y: 0.15 * height },
-          { x: 0.1 * width, y: 0.15 * height },
-        ],
-        score: 0.95,
-      },
-      {
-        type: "text",
-        box: [
-          { x: 0.1 * width, y: 0.2 * height },
-          { x: 0.45 * width, y: 0.2 * height },
-          { x: 0.45 * width, y: 0.6 * height },
-          { x: 0.1 * width, y: 0.6 * height },
-        ],
-        score: 0.92,
-      },
-      {
-        type: "figure",
-        box: [
-          { x: 0.55 * width, y: 0.2 * height },
-          { x: 0.9 * width, y: 0.2 * height },
-          { x: 0.9 * width, y: 0.5 * height },
-          { x: 0.55 * width, y: 0.5 * height },
-        ],
-        score: 0.88,
-      },
-      {
-        type: "table",
-        box: [
-          { x: 0.2 * width, y: 0.65 * height },
-          { x: 0.8 * width, y: 0.65 * height },
-          { x: 0.8 * width, y: 0.9 * height },
-          { x: 0.2 * width, y: 0.9 * height },
-        ],
-        score: 0.91,
-      },
-    ]
-
-    return regions
-  }
-
-  /**
-   * 处理各个版面区域
-   */
-  private async processRegions(
-    image: ImageData,
-    regions: any[]
-  ): Promise<LayoutResult> {
-    console.log("处理版面区域...")
-
-    if (!this.textDetector || !this.textRecognizer) {
-      throw new Error("文本检测或识别模块未初始化")
-    }
-
-    const processedRegions: any[] = []
-
-    // 处理每个区域
-    for (const region of regions) {
-      // 从原图中裁剪出区域
-      const regionImage = this.cropRegion(image, region.box)
-
-      // 根据区域类型执行不同的处理
-      switch (region.type) {
-        case "text":
-        case "title":
-        case "header":
-        case "footer":
-        case "reference":
-        case "comment":
-          // 文本类区域：执行文本检测和识别
-          const textBoxes = await this.textDetector.detect(regionImage)
-          const textLines = await this.textRecognizer.recognize(
-            regionImage,
-            textBoxes
-          )
-
-          // 合并所有文本行
-          const content = textLines.map((line) => line.text).join("\n")
-
-          processedRegions.push({
-            ...region,
-            content,
-          })
-          break
-
-        case "table":
-          // 表格区域：执行表格识别
-          if (this.tableRecognizer && this.options.enableTable) {
-            const tableResult = await this.tableRecognizer.recognize(
-              regionImage
-            )
-
-            processedRegions.push({
-              ...region,
-              content: tableResult,
-            })
-          } else {
-            processedRegions.push(region)
-          }
-          break
-
-        case "figure":
-        case "equation":
-        default:
-          // 其他区域：暂不处理内容
-          processedRegions.push(region)
-          break
-      }
-    }
-
+  async analyze(image: OcrImageData): Promise<LayoutResult> {
+    this.ensureReady()
+    const processed = ImageProcessor.preprocess(image, true)
+    const regions = mockRegions(processed.width, processed.height)
+    const processedRegions = await Promise.all(regions.map((r) => this.processRegion(image, r)))
     return {
       regions: processedRegions,
       pageWidth: image.width,
       pageHeight: image.height,
-      duration: {
-        preprocess: 0,
-        detection: 0,
-        total: 0,
-      },
+      duration: { preprocess: 0, detection: 0, total: 0 },
     }
   }
 
-  /**
-   * 从图像中裁剪区域
-   */
-  private cropRegion(image: ImageData, points: Point[]): ImageData {
-    return ImageProcessor.cropRegion(image, points)
-  }
-
-  /**
-   * 释放资源
-   */
-  public async dispose(): Promise<void> {
-    try {
-      if (this.model && typeof this.model.dispose === "function") {
-        this.model.dispose()
-      }
-
-      if (this.textDetector) {
-        await this.textDetector.dispose()
-      }
-
-      if (this.textRecognizer) {
-        await this.textRecognizer.dispose()
-      }
-
-      if (this.tableRecognizer) {
-        await this.tableRecognizer.dispose()
-      }
-
-      this.model = null
-      this.textDetector = null
-      this.textRecognizer = null
-      this.tableRecognizer = null
-      this.isInitialized = false
-
-      // 释放 ModelLoader
-      this.modelLoader.dispose()
-    } catch (error) {
-      console.error("释放版面分析资源失败:", error)
-      throw error
+  private async processRegion(image: OcrImageData, region: { type: LayoutRegion["type"]; bbox: Point[]; score: number }): Promise<LayoutRegion> {
+    const crop = ImageProcessor.cropRegion(image, region.bbox)
+    if (this.isTextType(region.type) && this.textDetector && this.textRecognizer) {
+      const boxes = await this.textDetector.detect(crop)
+      const lines = await this.textRecognizer.recognize(crop, boxes)
+      return { ...region, confidence: region.score, content: lines.map((l) => l.text).join("\n") }
     }
+    if (region.type === "table" && this.tableRecognizer) {
+      const table = await this.tableRecognizer.recognize(crop)
+      return { ...region, confidence: region.score, content: table as string }
+    }
+    return { ...region, confidence: region.score }
   }
+
+  private isTextType(type: LayoutRegion["type"]): boolean {
+    return type === "text" || type === "title" || type === "header" || type === "footer" || type === "reference" || type === "comment"
+  }
+}
+
+function mockRegions(w: number, h: number): Array<{ type: LayoutRegion["type"]; bbox: Point[]; score: number }> {
+  const box = (x1: number, y1: number, x2: number, y2: number): Point[] => [
+    { x: x1 * w, y: y1 * h }, { x: x2 * w, y: y1 * h },
+    { x: x2 * w, y: y2 * h }, { x: x1 * w, y: y2 * h },
+  ]
+  return [
+    { type: "title", bbox: box(0.1, 0.05, 0.9, 0.15), score: 0.95 },
+    { type: "text", bbox: box(0.1, 0.2, 0.45, 0.6), score: 0.92 },
+    { type: "figure", bbox: box(0.55, 0.2, 0.9, 0.5), score: 0.88 },
+    { type: "table", bbox: box(0.2, 0.65, 0.8, 0.9), score: 0.91 },
+  ]
 }

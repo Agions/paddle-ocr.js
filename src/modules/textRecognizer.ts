@@ -1,225 +1,60 @@
-import { PaddleOCROptions, TextBox, TextLine } from "../typings"
-import { OCRImageData as ImageData } from "../utils/image"
-import { ImageProcessor } from "../utils/imageProcessor"
-import { ModelLoader } from "../utils/ModelLoader"
-import { BaseRecognizer } from "./BaseRecognizer"
-
 /**
- * 文本识别类
- * 负责识别检测出的文本区域内容
+ * 文本识别（CRNN / SVTR / NRTR）
+ * 模型对象共享：与 TableRecognizer/LayoutAnalyzer 复用同一 TextRecognizer 实例
  */
+
+import type { OcrImageData, TextBox, TextLine } from "../typings"
+import { BaseRecognizer, runInference } from "./baseRecognizer"
+import { ImageProcessor } from "../utils/imageProcessor"
+import { isNode } from "../utils/env"
+
 export class TextRecognizer extends BaseRecognizer {
-  private modelLoader: ModelLoader
-  private model: any = null
   private vocab: string[] = []
 
-  /**
-   * 创建文本识别器实例
-   * @param options 配置选项
-   */
-  constructor(options: PaddleOCROptions) {
-    super(options)
-    this.modelLoader = new ModelLoader(options)
+  async init(): Promise<void> {
+    if (this.isInitialized) return
+    await this.loadVocab()
+    await this.modelLoader.load({ type: "recognition", name: this.options.recognitionModel ?? "CRNN", language: this.options.language ?? "ch" })
+    this.isInitialized = true
   }
 
-  /**
-   * 初始化识别模型
-   */
-  public async init(): Promise<void> {
-    if (this.isInitialized) {
-      return
-    }
-
-    try {
-      // 加载词汇表
-      await this.loadVocab()
-
-      // 使用 ModelLoader 统一加载模型
-      this.model = await this.modelLoader.loadRecognitionModel()
-
-      this.isInitialized = true
-    } catch (error) {
-      console.error("文本识别模型初始化失败:", error)
-      throw error
-    }
-  }
-
-  /**
-   * 加载词汇表
-   */
+  /** 加载字符表 (vocab) */
   private async loadVocab(): Promise<void> {
+    const lang = this.options.language ?? "ch"
+    const path = `${this.options.modelPath}/rec_${this.options.recognitionModel?.toLowerCase() ?? "crnn"}/vocab_${lang}.txt`
     try {
-      const language = this.options.language || "ch"
-      const vocabPath = `${
-        this.options.modelPath
-      }/rec_${this.options.recognitionModel?.toLowerCase()}/vocab_${language}.txt`
-
-      console.log(`加载词汇表: ${vocabPath}`)
-
-      let vocabText
-      if (typeof fetch !== "undefined") {
-        // 浏览器环境
-        const response = await fetch(vocabPath)
-        vocabText = await response.text()
-      } else {
-        // Node.js 环境
-        const fs = require("fs")
-        vocabText = await fs.promises.readFile(vocabPath, "utf-8")
-      }
-
-      this.vocab = vocabText.trim().split("\n")
-      console.log(`词汇表加载完成，共 ${this.vocab.length} 个词汇`)
-    } catch (error) {
-      console.error("加载词汇表失败:", error)
-      // 使用一个简单的默认词汇表进行测试
+      const text = isNode()
+        ? await require("fs").promises.readFile(path, "utf-8") // eslint-disable-line @typescript-eslint/no-var-requires
+        : await (await fetch(path)).text()
+      this.vocab = text.trim().split("\n")
+    } catch {
       this.vocab = "abcdefghijklmnopqrstuvwxyz0123456789".split("")
     }
   }
 
-  /**
-   * 识别图像中的文本内容
-   * @param image 输入图像
-   * @param boxes 可选的文本框位置
-   */
-  public async recognize(
-    image: ImageData,
-    boxes?: TextBox[]
-  ): Promise<TextLine[]> {
-    this.checkInitialized()
-
-    try {
-      const textLines: TextLine[] = []
-
-      if (boxes && boxes.length > 0) {
-        // 对每个文本框区域进行识别
-        for (let i = 0; i < boxes.length; i++) {
-          const box = boxes[i]
-
-          // 从原图中裁剪出文本区域
-          const textRegion = ImageProcessor.cropRegion(image, box.box)
-
-          // 预处理
-          const processedRegion = ImageProcessor.preprocess(textRegion)
-
-          // 识别文本
-          let recognitionResult
-          if (this.options.useTensorflow) {
-            recognitionResult = await this.recognizeWithTensorflow(
-              processedRegion
-            )
-          } else if (this.options.useONNX) {
-            recognitionResult = await this.recognizeWithONNX(processedRegion)
-          } else {
-            throw new Error("未指定模型后端")
-          }
-
-          // 后处理，转换为文本
-          const text = this.decodeText(recognitionResult)
-
-          textLines.push({
-            text,
-            score: recognitionResult.confidence || 0.9,
-            box,
-          })
-        }
-      } else {
-        // 如果没有提供文本框，则对整个图像进行识别
-        const processedImage = ImageProcessor.preprocess(image)
-
-        let recognitionResult
-        if (this.options.useTensorflow) {
-          recognitionResult = await this.recognizeWithTensorflow(processedImage)
-        } else if (this.options.useONNX) {
-          recognitionResult = await this.recognizeWithONNX(processedImage)
-        } else {
-          throw new Error("未指定模型后端")
-        }
-
-        const text = this.decodeText(recognitionResult)
-
-        textLines.push({
-          text,
-          score: recognitionResult.confidence || 0.85,
-        })
-      }
-
-      return textLines
-    } catch (error) {
-      console.error("文本识别失败:", error)
-      throw error
+  /** 识别文本行 */
+  async recognize(image: OcrImageData, boxes?: TextBox[]): Promise<TextLine[]> {
+    this.ensureReady()
+    if (boxes && boxes.length > 0) {
+      return Promise.all(boxes.map(async (box) => {
+        const crop = ImageProcessor.cropRegion(image, box.box)
+        return this.recognizeOne(crop, box)
+      }))
     }
+    const line = await this.recognizeOne(image)
+    return [line]
   }
 
-  /**
-   * 使用 TensorFlow 进行识别
-   */
-  private async recognizeWithTensorflow(processedImage: any): Promise<any> {
-    const tf = require("@tensorflow/tfjs")
-    // 根据模型需求调整输入形状
-    const input = tf
-      .tensor(processedImage.data)
-      .reshape([1, processedImage.height, processedImage.width, 3])
-
-    // 执行模型推理
-    const result = await this.model.predict(input)
-
-    // 释放张量
-    input.dispose()
-
-    // 模拟结果
-    return {
-      probabilities: result,
-      confidence: 0.95,
-      raw: result,
-    }
+  private async recognizeOne(image: OcrImageData, box?: TextBox): Promise<TextLine> {
+    const { data, width, height } = this.preprocess(image)
+    const model = await this.modelLoader.load({ type: "recognition", name: this.options.recognitionModel ?? "CRNN", language: this.options.language ?? "ch" })
+    const result = await runInference(model, data, height, width)
+    const text = this.decode(result)
+    return { text, score: 0.9, box }
   }
 
-  /**
-   * 使用 ONNX 进行识别
-   */
-  private async recognizeWithONNX(processedImage: any): Promise<any> {
-    // 准备 ONNX 输入
-    const input = new Float32Array(processedImage.data)
-    const inputTensor = new (require("onnxruntime-web").Tensor)(
-      "float32",
-      input,
-      [1, 3, processedImage.height, processedImage.width]
-    )
-
-    // 运行推理
-    const feeds = { input: inputTensor }
-    const results = await this.model.run(feeds)
-
-    // 模拟结果
-    return {
-      probabilities: results.output,
-      confidence: 0.93,
-      raw: results,
-    }
-  }
-
-  /**
-   * 解码识别结果为文本
-   */
-  private decodeText(recognitionResult: any): string {
-    // TODO: 实现真实的 CTC 解码/注意力解码逻辑
+  /** TODO: 真实 CTC / Attention 解码 */
+  private decode(_result: unknown): string {
     return ""
-  }
-
-  /**
-   * 释放资源
-   */
-  public async dispose(): Promise<void> {
-    // 释放模型
-    this.disposeModel(this.model)
-    this.model = null
-    
-    // 释放 ModelLoader
-    if (this.modelLoader && typeof this.modelLoader.dispose === "function") {
-      await this.modelLoader.dispose()
-    }
-    
-    // 调用基类清理
-    await super.dispose()
   }
 }

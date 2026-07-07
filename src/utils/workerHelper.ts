@@ -1,222 +1,77 @@
-import {
-  PaddleOCROptions,
-  OCRResult,
-  TableResult,
-  LayoutResult,
-  ProcessOptions,
-} from "../typings"
+/**
+ * Web Worker 助手：把长耗时识别放到后台线程
+ * 协议：out {type, id, data}；in {id, type, data}（type 以 :success/:error 结尾）
+ */
+
+import type { PaddleOcrOptions, OcrResult, TableResult, LayoutResult, ProcessOptions } from "../typings"
 import { isBrowser } from "./env"
 
-/**
- * Worker消息类型
- */
-type WorkerMessageType =
-  | "init"
-  | "recognize"
-  | "recognizeTable"
-  | "analyzeLayout"
+type WorkerMessageType = "init" | "recognize" | "recognizeTable" | "analyzeLayout"
+type WorkerResponseType = `${WorkerMessageType}:success` | `${WorkerMessageType}:error`
+type PendingTask = { resolve: (v: unknown) => void; reject: (e: Error) => void }
 
-/**
- * 正在处理的请求
- */
-interface PendingRequest {
-  resolve: (value: any) => void
-  reject: (reason: any) => void
-  type: WorkerMessageType
-}
-
-/**
- * PaddleOCR Worker助手类
- * 用于简化在浏览器中使用Web Worker的过程
- */
-export class PaddleOCRWorker {
+export class PaddleOcrWorker {
   private worker: Worker | null = null
-  private pendingRequests: Map<string, PendingRequest> = new Map()
-  private options: PaddleOCROptions
-  private isInitialized: boolean = false
-  private workerUrl: string | null = null
+  private pending = new Map<string, PendingTask>()
+  private workerUrl = "paddle-ocr-worker.js"
+  private options: PaddleOcrOptions
+  isInitialized = false
 
-  /**
-   * 构造函数
-   * @param options PaddleOCR选项
-   * @param workerUrl Worker脚本URL，默认为"paddle-ocr-worker.js"
-   */
-  constructor(
-    options: PaddleOCROptions,
-    workerUrl: string = "paddle-ocr-worker.js"
-  ) {
+  constructor(options: PaddleOcrOptions, workerUrl?: string) {
     this.options = options
-    this.workerUrl = workerUrl
+    if (workerUrl) this.workerUrl = workerUrl
   }
 
-  /**
-   * 初始化Worker
-   */
   async init(): Promise<void> {
-    if (!isBrowser()) {
-      throw new Error("Worker助手仅支持浏览器环境")
-    }
-
     if (this.isInitialized) return
-
-    return new Promise<void>((resolve, reject) => {
-      try {
-        // 创建Worker
-        this.worker = new Worker(this.workerUrl!)
-
-        // 监听消息
-        this.worker.addEventListener(
-          "message",
-          this.handleWorkerMessage.bind(this)
-        )
-
-        // 监听错误
-        this.worker.addEventListener("error", (error) => {
-          console.error("Worker错误:", error)
-          reject(new Error(`Worker错误: ${error.message}`))
-        })
-
-        // 等待Worker准备就绪
-        const readyHandler = (event: MessageEvent) => {
-          if (event.data.type === "ready") {
-            this.worker!.removeEventListener("message", readyHandler)
-
-            // 初始化Worker中的PaddleOCR
-            this.sendMessage("init", { options: this.options })
-              .then(() => {
-                this.isInitialized = true
-                resolve()
-              })
-              .catch(reject)
-          }
-        }
-
-        this.worker.addEventListener("message", readyHandler)
-      } catch (error) {
-        reject(error)
-      }
-    })
+    if (!isBrowser()) throw new Error("PaddleOcrWorker is browser-only")
+    this.worker = new Worker(this.workerUrl)
+    this.worker.addEventListener("message", this.onMessage)
+    this.worker.addEventListener("error", (e) => { throw new Error(`Worker error: ${e.message}`) })
+    await this.call("init", { options: this.options })
+    this.isInitialized = true
   }
 
-  /**
-   * 文本识别
-   * @param image 图像数据
-   * @param processOptions 处理选项
-   * @returns 识别结果
-   */
-  async recognize(
-    image: ImageData | HTMLCanvasElement | HTMLImageElement,
-    processOptions?: ProcessOptions
-  ): Promise<OCRResult> {
-    return this.sendMessage("recognize", {
-      image,
-      processOptions,
-    }) as Promise<OCRResult>
+  recognize(image: ImageData | HTMLCanvasElement | HTMLImageElement, options?: ProcessOptions): Promise<OcrResult> {
+    return this.call("recognize", { image, options })
   }
 
-  /**
-   * 表格识别
-   * @param image 图像数据
-   * @param processOptions 处理选项
-   * @returns 表格识别结果
-   */
-  async recognizeTable(
-    image: ImageData | HTMLCanvasElement | HTMLImageElement,
-    processOptions?: ProcessOptions
-  ): Promise<TableResult> {
-    return this.sendMessage("recognizeTable", {
-      image,
-      processOptions,
-    }) as Promise<TableResult>
+  recognizeTable(image: ImageData | HTMLCanvasElement | HTMLImageElement, options?: ProcessOptions): Promise<TableResult> {
+    return this.call("recognizeTable", { image, options })
   }
 
-  /**
-   * 版面分析
-   * @param image 图像数据
-   * @param processOptions 处理选项
-   * @returns 版面分析结果
-   */
-  async analyzeLayout(
-    image: ImageData | HTMLCanvasElement | HTMLImageElement,
-    processOptions?: ProcessOptions
-  ): Promise<LayoutResult> {
-    return this.sendMessage("analyzeLayout", {
-      image,
-      processOptions,
-    }) as Promise<LayoutResult>
+  analyzeLayout(image: ImageData | HTMLCanvasElement | HTMLImageElement, options?: ProcessOptions): Promise<LayoutResult> {
+    return this.call("analyzeLayout", { image, options })
   }
 
-  /**
-   * 销毁Worker
-   */
-  dispose(): void {
-    if (this.worker) {
-      this.worker.terminate()
-      this.worker = null
-    }
-
-    this.isInitialized = false
-    this.pendingRequests.clear()
-  }
-
-  /**
-   * 更新选项
-   * @param options 新的选项
-   */
-  async updateOptions(options: Partial<PaddleOCROptions>): Promise<void> {
+  async updateOptions(options: Partial<PaddleOcrOptions>): Promise<void> {
     this.options = { ...this.options, ...options }
-
-    // 如果已初始化，则重新初始化Worker
-    if (this.isInitialized) {
-      this.dispose()
-      await this.init()
-    }
+    this.dispose()
+    await this.init()
   }
 
-  /**
-   * 发送消息到Worker
-   * @param type 消息类型
-   * @param data 消息数据
-   * @returns 处理结果的Promise
-   */
-  private sendMessage(type: WorkerMessageType, data: any): Promise<any> {
-    if (!this.worker) {
-      throw new Error("Worker未初始化")
-    }
+  dispose(): void {
+    this.worker?.terminate()
+    this.worker = null
+    this.isInitialized = false
+    this.pending.clear()
+  }
 
+  private call(type: WorkerMessageType, data: unknown): Promise<any> {
+    if (!this.worker) throw new Error("Worker not initialized")
+    const id = Math.random().toString(36).slice(2)
     return new Promise((resolve, reject) => {
-      // 生成唯一ID
-      const id = Date.now().toString() + Math.random().toString(36).substring(2)
-
-      // 存储请求
-      this.pendingRequests.set(id, { resolve, reject, type })
-
-      // 发送消息
+      this.pending.set(id, { resolve, reject })
       this.worker!.postMessage({ type, id, data })
     })
   }
 
-  /**
-   * 处理Worker消息
-   * @param event 消息事件
-   */
-  private handleWorkerMessage(event: MessageEvent): void {
-    const { id, type, data } = event.data
-
-    // 查找挂起的请求
-    const request = this.pendingRequests.get(id)
-    if (!request) return
-
-    // 从挂起的请求中移除
-    this.pendingRequests.delete(id)
-
-    // 处理成功/错误
-    if (type.endsWith(":success")) {
-      request.resolve(data)
-    } else if (type.endsWith(":error")) {
-      const error = new Error(data.message)
-      error.stack = data.stack
-      request.reject(error)
-    }
+  private onMessage = (event: MessageEvent): void => {
+    const { id, type, data } = event.data as { id: string; type: WorkerResponseType; data: unknown }
+    const p = this.pending.get(id)
+    if (!p) return
+    this.pending.delete(id)
+    if (type.endsWith(":success")) p.resolve(data)
+    else if (type.endsWith(":error")) p.reject(new Error((data as { message: string }).message))
   }
 }

@@ -58,9 +58,11 @@ export class ModelLoader {
   private backend: Backend
   private basePath: string
 
-  constructor(private options: PaddleOcrOptions) {
+  constructor(options: PaddleOcrOptions) {
     this.backend = selectBackend(options)
     this.basePath = options.modelPath ?? MODEL_PATH.DEFAULT
+    // options 保留以备多 backend 调度等扩展；当前架构不在此处读取
+    void options
   }
 
   /** 加载模型（自动缓存） */

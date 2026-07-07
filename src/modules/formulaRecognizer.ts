@@ -2,7 +2,7 @@
  * 公式识别
  */
 
-import type { FormulaResult, FormulaType, OcrImageData, PaddleOcrOptions, Point } from "../typings"
+import type { FormulaResult, OcrImageData } from "../typings"
 import { BaseRecognizer } from "./baseRecognizer"
 
 export class FormulaRecognizer extends BaseRecognizer {
@@ -12,8 +12,8 @@ export class FormulaRecognizer extends BaseRecognizer {
     this.isInitialized = true
   }
 
-  /** 识别公式（当前为占位实现） */
-  async recognize(image: OcrImageData): Promise<FormulaResult[]> {
+  /** 占位实现（待接入真实公式模型） */
+  async recognize(_image: OcrImageData): Promise<FormulaResult[]> {
     this.ensureReady()
     return []
   }
@@ -21,8 +21,7 @@ export class FormulaRecognizer extends BaseRecognizer {
   toLatex(formula: FormulaResult): string {
     if (formula.latex) return formula.latex
     if (formula.tex) return `$${formula.tex}$`
-    if (formula.html) return htmlToLatex(formula.html)
-    return formula.text
+    return formula.html ? htmlToLatex(formula.html) : formula.text ?? ""
   }
 }
 

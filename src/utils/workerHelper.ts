@@ -33,15 +33,15 @@ export class PaddleOcrWorker {
   }
 
   recognize(image: ImageData | HTMLCanvasElement | HTMLImageElement, options?: ProcessOptions): Promise<OcrResult> {
-    return this.call("recognize", { image, options })
+    return this.call("recognize", { image, options }) as Promise<OcrResult>
   }
 
   recognizeTable(image: ImageData | HTMLCanvasElement | HTMLImageElement, options?: ProcessOptions): Promise<TableResult> {
-    return this.call("recognizeTable", { image, options })
+    return this.call("recognizeTable", { image, options }) as Promise<TableResult>
   }
 
   analyzeLayout(image: ImageData | HTMLCanvasElement | HTMLImageElement, options?: ProcessOptions): Promise<LayoutResult> {
-    return this.call("analyzeLayout", { image, options })
+    return this.call("analyzeLayout", { image, options }) as Promise<LayoutResult>
   }
 
   async updateOptions(options: Partial<PaddleOcrOptions>): Promise<void> {
@@ -57,7 +57,7 @@ export class PaddleOcrWorker {
     this.pending.clear()
   }
 
-  private call(type: WorkerMessageType, data: unknown): Promise<any> {
+  private call(type: WorkerMessageType, data: unknown): Promise<unknown> {
     if (!this.worker) throw new Error("Worker not initialized")
     const id = Math.random().toString(36).slice(2)
     return new Promise((resolve, reject) => {

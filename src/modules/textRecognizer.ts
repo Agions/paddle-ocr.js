@@ -18,10 +18,10 @@ export class TextRecognizer extends BaseRecognizer {
     this.isInitialized = true
   }
 
-  /** 加载字符表 (vocab) */
+  /** 加载字符表（CTC/Attention 解码需要） */
   private async loadVocab(): Promise<void> {
     const lang = this.options.language ?? "ch"
-    const path = `${this.options.modelPath}/rec_${this.options.recognitionModel?.toLowerCase() ?? "crnn"}/vocab_${lang}.txt`
+    const path = `${this.options.modelPath}/rec_${(this.options.recognitionModel ?? "CRNN").toLowerCase()}/vocab_${lang}.txt`
     try {
       const text = isNode()
         ? await require("fs").promises.readFile(path, "utf-8") // eslint-disable-line @typescript-eslint/no-var-requires
@@ -41,20 +41,19 @@ export class TextRecognizer extends BaseRecognizer {
         return this.recognizeOne(crop, box)
       }))
     }
-    const line = await this.recognizeOne(image)
-    return [line]
+    return [await this.recognizeOne(image)]
   }
 
   private async recognizeOne(image: OcrImageData, box?: TextBox): Promise<TextLine> {
     const { data, width, height } = this.preprocess(image)
     const model = await this.modelLoader.load({ type: "recognition", name: this.options.recognitionModel ?? "CRNN", language: this.options.language ?? "ch" })
     const result = await runInference(model, data, height, width)
-    const text = this.decode(result)
-    return { text, score: 0.9, box }
+    return { text: this.decode(result), score: 0.9, box }
   }
 
-  /** TODO: 真实 CTC / Attention 解码 */
+  /** 占位 CTC/Attention 解码；接入真实模型后用 this.vocab 做 token → char 映射 */
   private decode(_result: unknown): string {
+    void this.vocab // 保留 vocab 字段供真实模型接入
     return ""
   }
 }

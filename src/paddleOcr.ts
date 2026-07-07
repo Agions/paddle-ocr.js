@@ -97,7 +97,7 @@ export class PaddleOcr {
     const cacheKey = this.resultCache ? ResultCache.key(imageDataSignature(imageData), { mode: options?.mode ?? "text", lang: this.options.language ?? "ch", th: this.options.detectionThreshold ?? 0.3 }) : null
     if (cacheKey && this.resultCache?.has(cacheKey)) {
       this.stats.stats.cacheHits++
-      return this.resultCache.get(cacheKey)
+      return this.resultCache.get(cacheKey) as OcrResult
     }
     this.stats.stats.cacheMisses++
 
@@ -203,7 +203,8 @@ export class PaddleOcr {
   private async loadImageData(source: ImageSource): Promise<OcrImageData> {
     if (this.imageCache) {
       const key = ImageProcessor.cacheKey(source)
-      if (this.imageCache.has(key)) return this.imageCache.get(key)
+      const cached = this.imageCache.get(key)
+      if (cached) return cached
       const data = await loadImage(source)
       this.imageCache.set(key, data)
       return data

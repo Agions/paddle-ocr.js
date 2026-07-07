@@ -2,7 +2,7 @@
  * 文本检测（DB / EAST / PAN）
  */
 
-import type { OcrImageData, TextBox, TextLine } from "../typings"
+import type { OcrImageData, TextBox } from "../typings"
 import { BaseRecognizer, runInference } from "./baseRecognizer"
 
 export class TextDetector extends BaseRecognizer {

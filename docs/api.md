@@ -1,4 +1,6 @@
-# PaddleOCR.js API文档
+# PaddleOCR-JS API 参考 (v0.4.0)
+
+> v0.4.0 重构后所有公开类型都是 **PascalCase**（OcrResult / OcrError / PaddleOcrOptions），所有文件名都是 **camelCase**（paddleOcr.ts / modelLoader.ts）。从 v0.3.x 升级请参考 CHANGELOG.md 的迁移指南。
 
 ## 安装
 
@@ -8,562 +10,303 @@ npm install paddleocr-js
 
 ## 基本用法
 
-```javascript
-import PaddleOCR from 'paddleocr-js';
+```typescript
+import { PaddleOcr } from "paddleocr-js"
 
-// 创建OCR实例
-const paddleOCR = new PaddleOCR({
-  modelPath: '/models',
-  language: 'ch'
-});
-
-// 初始化
-await paddleOCR.init();
-
-// 执行文字识别
-const result = await paddleOCR.recognize(image);
+const ocr = new PaddleOcr({ modelPath: "/models", language: "ch" })
+await ocr.init()
+const result = await ocr.recognize(image)
 ```
 
-## API参考
+---
+
+## 类：`PaddleOcr`
+
+主入口类，位于 `src/paddleOcr.ts`。所有 OCR 入口统一签名 `(image: ImageSource) => Promise<ResultType>`。
 
 ### 构造函数
 
-创建PaddleOCR实例。
-
-```javascript
-const paddleOCR = new PaddleOCR(options);
+```typescript
+new PaddleOcr(options?: PaddleOcrOptions)
 ```
 
-#### 参数
+#### `PaddleOcrOptions`
 
-`options` 是一个可选的配置对象，包含以下属性：
+| 字段 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `modelPath` | `string` | `"./models"` (Node) / `"/models"` (browser) | 模型路径 |
+| `useTensorflow` | `boolean` | `true` | 使用 TF.js 后端 |
+| `useOnnx` | `boolean` | `false` | 使用 ONNX Runtime 后端 |
+| `useWasm` | `boolean` | `false` | 启用 WASM |
+| `enableDetection` | `boolean` | `true` | 启用文本检测 |
+| `detectionModel` | `"DB" \| "DB++" \| "EAST" \| "PAN" \| string` | `"DB"` | 检测模型 |
+| `detectionThreshold` | `number` | `0.3` | 检测置信度阈值 |
+| `detectionBoxThresh` | `number` | `0.3` | 检测框合并阈值 |
+| `detectionUnclipRatio` | `number` | `2.0` | 检测框扩展比率 |
+| `enableRecognition` | `boolean` | `true` | 启用文本识别 |
+| `recognitionModel` | `"CRNN" \| "SVTR" \| "NRTR" \| string` | `"CRNN"` | 识别模型 |
+| `language` | `LanguageOption` | `"ch"` | 识别语言 |
+| `recognitionBeamSize` | `number` | `5` | Beam search 大小 |
+| `recognitionCandOverlapRatio` | `number` | `0.4` | 候选重叠比率 |
+| `enableTable` | `boolean` | `false` | 启用表格识别（DI 共享 TextDetector） |
+| `enableLayout` | `boolean` | `false` | 启用版面分析（DI 共享） |
+| `enableFormula` | `boolean` | `false` | 启用公式识别 |
+| `enableBarcode` | `boolean` | `false` | 启用条码识别 |
+| `enableWatermark` | `boolean` | `false` | 启用水印检测 |
+| `tableOptions` | `TableRecognitionOptions` | — | 表格输出选项 |
+| `formulaOptions` | `FormulaRecognitionOptions` | — | 公式输出选项 |
+| `layoutOptions` | `LayoutAnalysisOptions` | — | 版面分析选项 |
+| `barcodeOptions` | `BarcodeRecognitionOptions` | — | 条码识别选项 |
+| `watermarkOptions` | `WatermarkDetectionOptions` | — | 水印检测选项 |
+| `cacheOptions` | `CacheConfig` | `{...}` | 缓存配置 |
+| `performanceOptions` | `PerformanceConfig` | — | 性能配置 |
+| `debugOptions` | `DebugConfig` | — | 调试配置 |
+| `onProgress` | `ProgressCallback` | — | 初始化进度回调 |
 
-| 属性名            | 类型     | 默认值    | 描述                                       |
-| ----------------- | -------- | --------- | ------------------------------------------ |
-| modelPath         | string   | '/models' | 模型文件路径                               |
-| useTensorflow     | boolean  | true      | 是否使用TensorFlow.js后端                  |
-| useONNX           | boolean  | false     | 是否使用ONNX Runtime后端                   |
-| useWasm           | boolean  | true      | 是否使用WebAssembly加速（浏览器环境）      |
-| enableDetection   | boolean  | true      | 是否启用文本检测                           |
-| detectionModel    | string   | 'DB'      | 文本检测模型类型（'DB'、'DB++'、'East'等） |
-| enableRecognition | boolean  | true      | 是否启用文本识别                           |
-| recognitionModel  | string   | 'CRNN'    | 文本识别模型类型（'CRNN'、'SVTR'等）       |
-| language          | string   | 'ch'      | 识别语言（'ch'、'en'等，支持80+种语言）    |
-| enableTable       | boolean  | false     | 是否启用表格识别                           |
-| enableLayout      | boolean  | false     | 是否启用版面分析                           |
-| enableFormula     | boolean  | false     | 是否启用公式识别                           |
-| maxSideLen        | number   | 960       | 图像最大边长                               |
-| threshold         | number   | 0.3       | 检测阈值                                   |
-| batchSize         | number   | 1         | 批处理大小                                 |
-| enableGPU         | boolean  | false     | 是否使用GPU加速（Node.js环境）             |
-| onProgress        | function | null      | 进度回调函数                               |
+> ⚠️ v0.4.0 **移除** 的字段：`maxSideLen` / `enableCache` / `cacheSize` / `threshold` / `batchSize` / `enableGPU` / `numThreads` / `useMultiScale` / `useAngle_cls` —— 这些从 v0.3.x 迁移时请直接删除。
 
-### init()
+---
 
-初始化OCR模型。
-
-```javascript
-await paddleOCR.init();
-```
-
-在使用其他方法前必须先调用此方法进行初始化。初始化过程会加载所有启用的模型。
-
-### recognize(image, options)
-
-执行OCR识别。
-
-```javascript
-const result = await paddleOCR.recognize(image, options);
-```
-
-#### 参数
-
-- `image`: 输入图像，可以是以下类型：
-
-  - 浏览器环境：HTMLImageElement、HTMLCanvasElement、ImageData、URL字符串
-  - Node.js环境：文件路径、Buffer、Uint8Array
-- `options`: 可选的处理选项：
-
-  ```javascript
-  {
-    mode: 'text',         // 处理模式：'text'、'table'、'layout'、'all'
-    returnOriginalImage: false,  // 是否在结果中包含原始图像
-    useAngle: false,      // 是否进行文字方向检测
-    useDeskew: false      // 是否进行图像校正
-  }
-  ```
-
-#### 返回值
-
-返回一个包含OCR结果的对象：
-
-```javascript
-{
-  textDetection: [  // 检测到的文本区域
-    {
-      id: 0,  // 文本框ID
-      box: [  // 文本框四个角点坐标
-        { x: 100, y: 100 },
-        { x: 200, y: 100 },
-        { x: 200, y: 150 },
-        { x: 100, y: 150 }
-      ],
-      score: 0.95  // 检测置信度
-    },
-    // ...更多文本框
-  ],
-  textRecognition: [  // 识别到的文本内容
-    {
-      text: "识别到的文本内容",  // 文本内容
-      score: 0.98,             // 识别置信度
-      box: { /* 对应的文本框 */ }  // 关联的文本框
-    },
-    // ...更多文本行
-  ],
-  duration: {  // 各阶段耗时（毫秒）
-    preprocess: 10,   // 预处理耗时
-    detection: 80,    // 检测耗时
-    recognition: 120, // 识别耗时
-    total: 210        // 总耗时
-  }
-}
-```
-
-### recognizeTable(image, options)
-
-识别图像中的表格。
-
-```javascript
-const tableResult = await paddleOCR.recognizeTable(image, options);
-```
-
-#### 参数
-
-- `image`: 输入图像，格式同 `recognize()`方法
-- `options`: 可选的处理选项，格式同 `recognize()`方法
-
-#### 返回值
-
-返回一个包含表格识别结果的对象：
-
-```javascript
-{
-  table: {
-    structure: {  // 表格结构信息
-      rows: 5,    // 行数
-      cols: 4,    // 列数
-      lines: {    // 表格线条信息
-        horizontal: [ /* 水平线信息 */ ],
-        vertical: [ /* 垂直线信息 */ ]
-      }
-    },
-    cells: [  // 单元格信息
-      {
-        box: [ /* 单元格边界框 */ ],  // 单元格边界坐标
-        content: "单元格内容",      // 单元格文本内容
-        score: 0.95,              // 识别置信度
-        rowspan: 1,               // 行合并数
-        colspan: 1,               // 列合并数
-        row: 0,                   // 行索引
-        col: 0                    // 列索引
-      },
-      // ...更多单元格
-    ]
-  },
-  html: "<table>...</table>"  // HTML格式的表格
-}
-```
-
-### analyzeLayout(image, options)
-
-分析文档版面结构。
-
-```javascript
-const layoutResult = await paddleOCR.analyzeLayout(image, options);
-```
-
-#### 参数
-
-- `image`: 输入图像，格式同 `recognize()`方法
-- `options`: 可选的处理选项，格式同 `recognize()`方法
-
-#### 返回值
-
-返回一个包含版面分析结果的对象：
-
-```javascript
-{
-  regions: [  // 版面区域数组
-    {
-      type: "title",  // 区域类型：text、title、figure、table等
-      box: [ /* 区域边界框 */ ],  // 区域边界坐标
-      score: 0.95,              // 区域检测置信度
-      content: "区域内容"        // 区域内容（文本或表格结果）
-    },
-    // ...更多区域
-  ]
-}
-```
-
-### getOptions()
-
-获取当前配置选项。
-
-```javascript
-const options = paddleOCR.getOptions();
-```
-
-#### 返回值
-
-返回当前的配置选项对象，格式同构造函数的 `options`参数。
-
-### updateOptions(options)
-
-更新配置选项。
-
-```javascript
-paddleOCR.updateOptions({
-  threshold: 0.5,
-  language: 'en'
-});
-```
-
-#### 参数
-
-- `options`: 需要更新的配置项，格式同构造函数的 `options`参数，但只需包含要更新的属性。
-
-### dispose()
-
-释放所有资源。
-
-```javascript
-await paddleOCR.dispose();
-```
-
-当不再需要OCR功能时，应调用此方法释放模型和内存资源。
-
-## 静态属性
-
-### PaddleOCR.version
-
-当前库的版本号。
-
-```javascript
-console.log(PaddleOCR.version);  // 例如：'0.1.0'
-```
-
-## 类型定义
-
-以下是主要类型的定义，使用TypeScript时有用：
+### `init()`
 
 ```typescript
-// 坐标点
-interface Point {
-  x: number;
-  y: number;
+await ocr.init()
+```
+
+加载并初始化所有启用的模型。已启用 `enableTable` 的会 DI 复用全局 `TextDetector` / `TextRecognizer`（不再单独加载）。
+
+### `recognize(image, options?)`
+
+```typescript
+const result: OcrResult = await ocr.recognize(imageSource, processOptions?)
+```
+
+| 字段 | 说明 |
+|---|---|
+| `textDetection` | `TextBox[]` — 检测到的文本区域 |
+| `textRecognition` | `TextLine[]` — 识别到的文本行 |
+| `duration` | `{ preprocess, detection, recognition, total }` 各阶段耗时 (ms) |
+| `imageWidth` | 图像宽度 |
+| `imageHeight` | 图像高度 |
+
+### `recognizeBatch(images, options?)`
+
+返回 `BatchOcrResult`：成功 / 失败列表 + 平均耗时。
+
+### `recognizeTable(image)` / `analyzeLayout(image)` / `recognizeFormula(image)` / `detectBarcodes(image)` / `detectWatermarks(image)`
+
+每个返回对应 Result 类型；未启用对应模块时抛 `OcrError { code: NOT_INITIALIZED }`。
+
+### `getStats(): OcrStats` / `resetStats()`
+
+获取 / 重置统计 (`totalRequests` / `successfulRequests` / `failedRequests` / `averageDuration` / `cacheHits` / `cacheMisses`)。
+
+### `dispose()`
+
+释放所有 Recognizer + 缓存中的模型。
+
+### 静态属性
+
+```typescript
+PaddleOcr.version         // '0.4.0'
+PaddleOcr.workerHelper    // = PaddleOcrWorker
+PaddleOcr.ResultVisualizer// = ResultVisualizer
+PaddleOcr.LightVisualizer // = LightVisualizer
+PaddleOcr.MODEL_PATH      // 模型路径常量
+```
+
+---
+
+## 类：`PaddleOcrWorker`
+
+把 OCR 调用搬到 Web Worker 中，主线程不阻塞。
+
+```typescript
+const worker = new PaddleOcrWorker({ language: "ch" })
+await worker.init()
+const result = await worker.recognize(image)
+```
+
+协议：`{type, id, data}` 出 / `{id, type: "<msg>:success|:error", data}` 入。
+
+---
+
+## 工具类
+
+### 图像处理
+
+```typescript
+import { loadImage, ImageProcessor } from "paddleocr-js"
+
+const imageData: OcrImageData = await loadImage(source)
+
+// 边界盒
+const box = ImageProcessor.boundingBox(points)
+
+// 多边形裁剪 → RGBA
+const crop = ImageProcessor.cropRegion(image, points)
+
+// 缓存键
+const key = ImageProcessor.cacheKey(imageData, { width: 800 })
+```
+
+### 缓存
+
+```typescript
+import { LruCache, ImageCache, ResultCache } from "paddleocr-js"
+
+const cache = new LruCache<string>({ maxSize: 50 * 1024 * 1024, maxCount: 100 })
+cache.set("k", value)
+const v = cache.get("k")
+```
+
+### 环境检测
+
+```typescript
+import { isNode, isBrowser } from "paddleocr-js"
+```
+
+### 模型加载器
+
+```typescript
+import { ModelLoader } from "paddleocr-js"
+const loader = new ModelLoader({ useTensorflow: true })
+const model = await loader.load({ type: "detection", name: "DB" })
+loader.dispose()
+```
+
+### 可视化
+
+```typescript
+import { ResultVisualizer, LightVisualizer } from "paddleocr-js"
+
+const vis = new ResultVisualizer("containerId", { theme: "dark" })
+await vis.loadImage(imageElement)
+vis.setResult(ocrResult)
+vis.render()
+```
+
+---
+
+## 类型
+
+### 基础
+
+```typescript
+interface Point { x: number; y: number }
+interface OcrImageData { width: number; height: number; data: Uint8Array | Uint8ClampedArray; channels?: number; colorSpace?: string }
+
+interface TextBox { id: number; box: Point[]; score: number }
+interface TextLine { text: string; score: number; box?: TextBox; language?: string }
+```
+
+### OCR 结果
+
+```typescript
+interface OcrDuration { preprocess: number; detection: number; recognition: number; total: number }
+
+interface OcrResult {
+  textDetection: TextBox[]
+  textRecognition: TextLine[]
+  duration: OcrDuration
+  imageWidth?: number
+  imageHeight?: number
+  angle?: number
+  rotatedImage?: unknown
+  originalImage?: unknown
 }
 
-// 文本框
-interface TextBox {
-  id: number;
-  box: Point[];
-  score: number;
-}
+interface TableCell { row: number; col: number; content: string; bbox: Point[] }
 
-// 文本行
-interface TextLine {
-  text: string;
-  score: number;
-  box?: TextBox;
-}
-
-// OCR结果
-interface OCRResult {
-  textDetection: TextBox[];
-  textRecognition: TextLine[];
-  duration: {
-    preprocess: number;
-    detection: number;
-    recognition: number;
-    total: number;
-  };
-}
-
-// 表格结果
 interface TableResult {
-  table: {
-    structure: TableStructure;
-    cells: TableCell[];
-  };
-  html: string;
+  table: { cells: TableCell[]; bbox: Point[] }
+  structure?: unknown
+  format?: "html" | "markdown" | "excel"
+  html?: string
+  markdown?: string
+  duration: OcrDuration
+  imageWidth?: number
+  imageHeight?: number
 }
 
-// 表格结构
-interface TableStructure {
-  rows: number;
-  cols: number;
-  lines: {
-    horizontal: LineInfo[];
-    vertical: LineInfo[];
-  };
+type LayoutRegionType = "text" | "table" | "figure" | "title" | "header" | "footer" | "reference" | "equation" | "comment"
+
+interface LayoutRegion {
+  type: LayoutRegionType
+  bbox: Point[]
+  confidence: number
+  box?: Point[]
+  score?: number
+  content?: string
 }
 
-// 表格单元格
-interface TableCell {
-  box: Point[];
-  content: string;
-  score: number;
-  rowspan: number;
-  colspan: number;
-  row: number;
-  col: number;
-}
-
-// 版面分析结果
 interface LayoutResult {
-  regions: {
-    type: string;
-    box: Point[];
-    score: number;
-    content?: string | TableResult;
-  }[];
+  regions: LayoutRegion[]
+  duration: { preprocess: number; detection: number; total: number }
+  imageWidth?: number
+  imageHeight?: number
+  pageWidth?: number
+  pageHeight?: number
 }
 
-// 配置选项
-interface PaddleOCROptions {
-  modelPath?: string;
-  useTensorflow?: boolean;
-  useONNX?: boolean;
-  useWasm?: boolean;
-  enableDetection?: boolean;
-  detectionModel?: string;
-  enableRecognition?: boolean;
-  recognitionModel?: string;
-  language?: string;
-  enableTable?: boolean;
-  enableLayout?: boolean;
-  enableFormula?: boolean;
-  maxSideLen?: number;
-  threshold?: number;
-  batchSize?: number;
-  enableGPU?: boolean;
-  onProgress?: (progress: number, stage: string) => void;
+interface FormulaResult {
+  formula: string
+  type: "inline" | "block" | "inline_tex" | "block_tex" | "html"
+  bbox: Point[]
+  latex?: string; tex?: string; html?: string; text?: string
+  duration: { preprocess: number; recognition: number; total: number }
 }
 
-// 处理选项
-interface ProcessOptions {
-  mode?: 'text' | 'table' | 'layout' | 'all';
-  returnOriginalImage?: boolean;
-  useAngle?: boolean;
-  useDeskew?: boolean;
+interface BarcodeResult {
+  barcode: string
+  type: string
+  bbox: Point[]
+  data?: string; format?: string
+  duration: OcrDuration
 }
 ```
 
-## 示例
+### 错误
 
-### 基础文本识别示例
+```typescript
+enum ErrorCode {
+  INVALID_IMAGE_FORMAT = 1001, MODEL_LOAD_FAILED = 1002, PROCESSING_TIMEOUT = 1003,
+  CACHE_ERROR = 1004, NETWORK_ERROR = 1005, CONFIG_ERROR = 1006, INIT_FAILED = 1007,
+  RECOGNITION_FAILED = 1008, MEMORY_LIMIT_EXCEEDED = 1009, NOT_INITIALIZED = 1010,
+  UNKNOWN_ERROR = 9999,
+}
 
-```javascript
-import PaddleOCR from 'paddleocr-js';
+class OcrError extends Error {
+  code: ErrorCode
+  stage?: string
+  details?: unknown
+}
+```
 
-async function runOCR() {
-  // 创建OCR实例
-  const paddleOCR = new PaddleOCR({
-    modelPath: '/models',
-    language: 'ch'
-  });
-  
+---
+
+## 完整示例
+
+```typescript
+import { PaddleOcr, loadImage } from "paddleocr-js"
+import { readFileSync } from "fs"
+
+async function ocrImage(imagePath: string) {
+  const ocr = new PaddleOcr({ language: "ch" })
+
+  ocr.onProgress?.((p, stage) => console.log(`[${stage}] ${p.toFixed(0)}%`))
+
+  await ocr.init()
+
   try {
-    // 初始化（加载模型）
-    await paddleOCR.init();
-  
-    // 获取图像（从Canvas、文件或URL）
-    const image = document.getElementById('image');
-  
-    // 执行识别
-    const result = await paddleOCR.recognize(image);
-  
-    // 处理结果
-    console.log('识别结果:', result);
-  
-    // 显示识别文本
-    const textContent = result.textRecognition
-      .map(line => line.text)
-      .join('\n');
-  
-    document.getElementById('result').textContent = textContent;
-  } catch (error) {
-    console.error('OCR处理失败:', error);
+    const image = await loadImage(readFileSync(imagePath))
+    const result = await ocr.recognize(image)
+    console.log(result.textRecognition.map((l) => l.text).join("\n"))
+    return result
   } finally {
-    // 释放资源
-    await paddleOCR.dispose();
-  }
-}
-
-runOCR();
-```
-
-### 表格识别示例
-
-```javascript
-import PaddleOCR from 'paddleocr-js';
-
-async function recognizeTable() {
-  // 创建OCR实例
-  const paddleOCR = new PaddleOCR({
-    modelPath: '/models',
-    language: 'ch',
-    enableTable: true  // 启用表格识别
-  });
-  
-  try {
-    // 初始化
-    await paddleOCR.init();
-  
-    // 获取图像
-    const image = document.getElementById('tableImage');
-  
-    // 识别表格
-    const result = await paddleOCR.recognizeTable(image);
-  
-    // 显示识别结果（HTML表格）
-    document.getElementById('tableResult').innerHTML = result.html;
-  
-    // 也可以访问结构化数据
-    console.log('表格结构:', result.table.structure);
-    console.log('单元格数据:', result.table.cells);
-  } catch (error) {
-    console.error('表格识别失败:', error);
-  } finally {
-    // 释放资源
-    await paddleOCR.dispose();
-  }
-}
-
-recognizeTable();
-```
-
-### 版面分析示例
-
-```javascript
-import PaddleOCR from 'paddleocr-js';
-
-async function analyzeDocument() {
-  // 创建OCR实例
-  const paddleOCR = new PaddleOCR({
-    modelPath: '/models',
-    language: 'ch',
-    enableLayout: true,  // 启用版面分析
-    enableTable: true    // 也启用表格识别（用于表格区域）
-  });
-  
-  try {
-    // 初始化
-    await paddleOCR.init();
-  
-    // 获取图像
-    const image = document.getElementById('documentImage');
-  
-    // 分析版面
-    const result = await paddleOCR.analyzeLayout(image);
-  
-    // 处理各类区域
-    const outputDiv = document.getElementById('layoutResult');
-    outputDiv.innerHTML = '';
-  
-    for (const region of result.regions) {
-      const regionDiv = document.createElement('div');
-      regionDiv.className = `region ${region.type}`;
-    
-      const titleElem = document.createElement('h3');
-      titleElem.textContent = `${region.type} (置信度: ${region.score.toFixed(2)})`;
-      regionDiv.appendChild(titleElem);
-    
-      const contentElem = document.createElement('div');
-    
-      if (region.type === 'table' && typeof region.content === 'object') {
-        // 表格区域
-        contentElem.innerHTML = region.content.html;
-      } else {
-        // 文本区域
-        contentElem.textContent = region.content || '';
-      }
-    
-      regionDiv.appendChild(contentElem);
-      outputDiv.appendChild(regionDiv);
-    }
-  } catch (error) {
-    console.error('版面分析失败:', error);
-  } finally {
-    // 释放资源
-    await paddleOCR.dispose();
-  }
-}
-
-analyzeDocument();
-```
-
-## 高级用法
-
-### 自定义进度回调
-
-```javascript
-const paddleOCR = new PaddleOCR({
-  // ...其他选项
-  onProgress: (progress, stage) => {
-    console.log(`加载进度: ${progress}%, 阶段: ${stage}`);
-  
-    // 更新UI进度条
-    document.getElementById('progressBar').value = progress;
-    document.getElementById('progressStage').textContent = stage;
-  }
-});
-```
-
-### 批量处理文件
-
-```javascript
-async function processBatch(fileList) {
-  // 初始化一次，处理多个文件
-  const paddleOCR = new PaddleOCR({
-    modelPath: '/models',
-    language: 'ch'
-  });
-  
-  await paddleOCR.init();
-  
-  const results = [];
-  
-  try {
-    for (const file of fileList) {
-      // 在Node.js中，file可以是文件路径
-      // 在浏览器中，可以使用FileReader读取文件
-      const result = await paddleOCR.recognize(file);
-      results.push({
-        filename: file.name || file,
-        result
-      });
-    }
-  
-    return results;
-  } finally {
-    // 所有文件处理完后释放资源
-    await paddleOCR.dispose();
+    await ocr.dispose()
   }
 }
 ```
 
-### 动态切换语言
-
-```javascript
-async function switchLanguage(newLanguage) {
-  // 更新选项
-  paddleOCR.updateOptions({
-    language: newLanguage
-  });
-  
-  // 重新初始化
-  await paddleOCR.dispose(); // 先释放旧模型
-  await paddleOCR.init();    // 加载新的语言模型
-}
-```
+详见 [README.md](../README.md) 与 [architecture.md](./architecture.md)。

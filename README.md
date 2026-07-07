@@ -11,318 +11,223 @@
     <img src="https://img.shields.io/npm/l/paddleocr-js.svg" alt="license">
   </a>
   <a href="https://github.com/Agions/paddle-ocr.js/actions">
-    <img src="https://github.com/Agions/paddle-ocr.js/workflows/CI/badge.svg" alt="CI">
+    <img src="https://img.shields.io/github/actions/workflow/status/Agions/paddle-ocr.js/ci.yml" alt="CI">
   </a>
 </p>
 
-> 🚀 PaddleOCR JavaScript 封装，支持浏览器和 Node.js 的 OCR 识别
+> 🚀 PaddleOCR 的 JavaScript/TypeScript 封装 — 文本 / 表格 / 公式 / 条码 / 版面识别，支持浏览器 & Node.js
+
+## ✨ v0.4.0 重构亮点
+
+- 🏗️ **Backend 抽象 + 模型共享** — DB/CRNN 模型加载从 3 次降到 1 次
+- 🔄 **严格 DRY** — `hashKey` / `VisualizerBase` / `selectBackend` / `boundingBox` 全部单一定义
+- 📦 **TypeScript strict 全面开启** — `strict: true` + 5 个子开关全开
+- 🎨 **PascalCase 类型 + camelCase 文件** — 25 文件、2051 LOC（从 7051 行 -71%）
+- ✅ **0 lint warnings + 36 单测全绿**（vs baseline 158 warnings）
+- 🐛 **3 个潜在 bug 修复** — DB 模型重复加载 / Worker 协议 race / Visualizer 内存泄漏
+
+[→ 完整重构 CHANGELOG](./CHANGELOG.md) · [→ 架构设计](./docs/architecture.md)
 
 ## 特性
 
-- 📝 **文本识别** - 支持 80+ 语言的中英文识别
-- 📊 **表格识别** - 精准识别表格结构，输出 HTML/Markdown/Excel
-- 🔢 **公式识别** - 识别数学公式，输出 LaTeX/MathML
-- 📱 **条码识别** - 支持 QR 码、条形码等 10+ 格式
-- 🗂️ **布局分析** - 自动识别文档布局结构
-- ⚡ **高性能** - 模型缓存、Web Worker 支持
-- 🌐 **跨平台** - 浏览器、小程序、Node.js
+| 模块 | 说明 |
+|---|---|
+| 📝 文本识别 | CRNN / SVTR / NRTR，6 种语言 |
+| 📊 表格识别 | 输出 HTML / Markdown / Excel |
+| 🔢 公式识别 | LaTeX / MathML / TeX 输出 |
+| 📱 条码识别 | QR / EAN / Code128 等 12 种 |
+| 🗂️ 版面分析 | PP-Layout 区域分类 |
+| ⚡ 性能 | 模型共享 + LRU 缓存 + Web Worker |
 
 ## 安装
 
 ```bash
-# npm
 npm install paddleocr-js
-
-# yarn
-yarn add paddleocr-js
-
-# pnpm
-pnpm add paddleocr-js
+# yarn add paddleocr-js
+# pnpm add paddleocr-js
 ```
 
 ## 快速开始
 
-### 浏览器环境
+### ES Modules（推荐）
+
+```typescript
+import { PaddleOcr } from "paddleocr-js"
+
+const ocr = new PaddleOcr({
+  modelPath: "/models",   // 浏览器默认；Node 用 "./models"
+  useTensorflow: true,    // 或 useOnnx: true
+  language: "ch",
+})
+
+await ocr.init()
+
+// 文本识别
+const result = await ocr.recognize(imageElement)
+console.log(result.textRecognition)
+```
+
+### Node.js
+
+```typescript
+import { PaddleOcr, loadImage } from "paddleocr-js"
+import { readFileSync } from "fs"
+
+const ocr = new PaddleOcr({ language: "ch" })
+await ocr.init()
+
+const image = loadImage(readFileSync("image.jpg"))
+const result = await ocr.recognize(image)
+```
+
+### 浏览器 UMD
 
 ```html
 <script src="dist/browser/index.min.js"></script>
 <script>
-  const paddleOCR = new PaddleOCR({
-    modelPath: '/models',
-    useWasm: true,
-    language: 'ch'
-  });
-  
-  paddleOCR.init().then(() => {
-    paddleOCR.recognize(imageElement).then(result => {
-      console.log(result.textRecognition);
-    });
-  });
+  const ocr = new PaddleOcr({ modelPath: "/models", language: "ch" })
+  ocr.init().then(() => ocr.recognize(imageEl).then(console.log))
 </script>
 ```
 
-### Node.js 环境
-
-```javascript
-import { PaddleOCR } from 'paddleocr-js';
-import fs from 'fs';
-
-async function main() {
-  const paddleOCR = new PaddleOCR({
-    language: 'ch',
-    useWasm: true
-  });
-  
-  await paddleOCR.init();
-  
-  const imageBuffer = fs.readFileSync('image.jpg');
-  const result = await paddleOCR.recognize(imageBuffer);
-  
-  console.log('识别结果:', result.textRecognition);
-}
-
-main();
-```
-
-### ES Modules
-
-```javascript
-import { PaddleOCR } from 'paddleocr-js';
-
-async function detectText() {
-  const paddleOCR = new PaddleOCR({
-    modelPath: '/models',
-    useWasm: true,
-    language: 'ch'
-  });
-  
-  await paddleOCR.init();
-  
-  const result = await paddleOCR.recognize('https://example.com/image.jpg');
-  console.log(result);
-}
-
-detectText();
-```
-
-## 功能示例
-
-### 文本识别
-
-```javascript
-const paddleOCR = new PaddleOCR({
-  language: 'ch',       // 语言: ch, en, fr, de, ja, ko...
-  useWasm: true,        // 使用 WebAssembly 加速
-  enableGPU: false,     // 启用 GPU 加速
-  detectionModel: 'DB', // 检测模型: DB, DB++, EAST
-  recognitionModel: 'CRNN' // 识别模型: CRNN, SVTR
-});
-
-await paddleOCR.init();
-const result = await paddleOCR.recognize(imageSource);
-
-// 结果结构
-// {
-//   textDetection: [{ box: [...], score: 0.95 }],
-//   textRecognition: [{ text: '识别文本', score: 0.92 }],
-//   duration: { total: 1200, detection: 800, recognition: 400 }
-// }
-```
-
-### 表格识别
-
-```javascript
-const paddleOCR = new PaddleOCR({
-  enableTable: true,
-  tableOptions: {
-    format: 'html' // 输出格式: html, markdown, excel
-  }
-});
-
-await paddleOCR.init();
-const tableResult = await paddleOCR.recognizeTable(imageSource);
-
-// tableResult.html     // HTML 表格
-// tableResult.markdown // Markdown 表格
-// tableResult.excel    // Base64 编码的 Excel
-```
-
-### 公式识别
-
-```javascript
-const paddleOCR = new PaddleOCR({
-  enableFormula: true,
-  formulaOptions: {
-    enableLatex: true,
-    enableMathML: false
-  }
-});
-
-const formulas = await paddleOCR.recognizeFormula(imageSource);
-
-// formulas[0].latex  // LaTeX 格式: \frac{a}{b}
-// formulas[0].tex    // 原始 TeX
-```
-
-### 条码识别
-
-```javascript
-const paddleOCR = new PaddleOCR({
-  enableBarcode: true
-});
-
-const barcodes = await paddleOCR.detectBarcodes(imageSource);
-
-// barcodes[0].type   // 'qr_code', 'code_128'...
-// barcodes[0].data   // 编码内容
-```
-
-### 批量识别
-
-```javascript
-const images = ['img1.jpg', 'img2.jpg', 'img3.jpg'];
-const batchResult = await paddleOCR.recognizeBatch(images);
-
-// batchResult.results          // OCRResult 数组
-// batchResult.totalDuration    // 总耗时（毫秒）
-// batchResult.averageDuration  // 平均耗时（毫秒）
-```
-
-### 布局分析
-
-```javascript
-const paddleOCR = new PaddleOCR({
-  enableLayout: true
-});
-
-const layout = await paddleOCR.analyzeLayout(imageSource);
-
-// layout.regions[0].type  // 'text', 'title', 'figure', 'table'...
-// layout.regions[0].box   // 区域坐标
-// layout.regions[0].content // 区域内容
-```
-
-## 配置选项
-
-| 选项 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `modelPath` | string | `/models` | 模型路径 |
-| `useWasm` | boolean | `true` | 使用 WebAssembly |
-| `useTensorflow` | boolean | `true` | 使用 TensorFlow.js |
-| `useONNX` | boolean | `false` | 使用 ONNX Runtime |
-| `language` | string | `ch` | 识别语言 |
-| `enableTable` | boolean | `false` | 启用表格识别 |
-| `enableFormula` | boolean | `false` | 启用公式识别 |
-| `enableBarcode` | boolean | `false` | 启用条码识别 |
-| `enableLayout` | boolean | `false` | 启用布局分析 |
-| `enableCache` | boolean | `true` | 启用缓存 |
-| `maxSideLen` | number | `960` | 最大边长 |
-| `threshold` | number | `0.3` | 检测阈值 |
-| `batchSize` | number | `1` | 批处理大小 |
-| `numThreads` | number | `4` | WASM 线程数 |
-
-## API
-
-### PaddleOCR
-
-主类，提供 OCR 识别功能。
+## API 速览
 
 ```typescript
-class PaddleOCR {
-  constructor(options?: PaddleOCROptions)
+class PaddleOcr {
+  constructor(options?: PaddleOcrOptions)
   init(): Promise<void>
-  recognize(image: ImageSource, options?: ProcessOptions): Promise<OCRResult>
-  recognizeBatch(images: ImageSource[], options?: ProcessOptions): Promise<BatchOCRResult>
-  recognizeTable(image: ImageSource, options?: ProcessOptions): Promise<TableResult>
-  analyzeLayout(image: ImageSource, options?: ProcessOptions): Promise<LayoutResult>
-  recognizeFormula(image: ImageSource, options?: ProcessOptions): Promise<FormulaResult[]>
+  recognize(image: ImageSource, options?: ProcessOptions): Promise<OcrResult>
+  recognizeBatch(images: ImageSource[], options?: ProcessOptions): Promise<BatchOcrResult>
+  recognizeTable(image: ImageSource): Promise<TableResult>
+  analyzeLayout(image: ImageSource): Promise<LayoutResult>
+  recognizeFormula(image: ImageSource): Promise<FormulaResult[]>
   detectBarcodes(image: ImageSource): Promise<BarcodeResult[]>
-  getStats(): OCRStats
+  detectWatermarks(image: ImageSource): Promise<WatermarkInfo[]>
+  getStats(): OcrStats
+  resetStats(): void
   dispose(): Promise<void>
 }
 ```
 
-### 静态方法
+## 配置选项（PaddleOcrOptions）
+
+| 选项 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `modelPath` | `string` | `"./models"` | 模型文件路径 |
+| `useTensorflow` | `boolean` | `true` | 使用 TF.js 后端 |
+| `useOnnx` | `boolean` | `false` | 使用 ONNX Runtime 后端 |
+| `useWasm` | `boolean` | `false` | 启用 WASM |
+| `language` | `"ch" \| "en" \| "fr" \| "de" \| "ja" \| "ko"` | `"ch"` | 识别语言 |
+| `enableDetection` | `boolean` | `true` | 启用文本检测 |
+| `enableRecognition` | `boolean` | `true` | 启用文本识别 |
+| `enableTable` | `boolean` | `false` | 启用表格识别（DI 共享 TextDetector） |
+| `enableLayout` | `boolean` | `false` | 启用版面分析 |
+| `enableFormula` | `boolean` | `false` | 启用公式识别 |
+| `enableBarcode` | `boolean` | `false` | 启用条码识别 |
+| `enableWatermark` | `boolean` | `false` | 启用水印检测 |
+| `detectionModel` | `"DB" \| "DB++" \| "EAST" \| "PAN"` | `"DB"` | 检测模型 |
+| `recognitionModel` | `"CRNN" \| "SVTR" \| "NRTR"` | `"CRNN"` | 识别模型 |
+| `detectionThreshold` | `number` | `0.3` | 检测置信度 |
+| `cacheOptions` | `CacheConfig` | — | 缓存配置 |
+| `performanceOptions` | `PerformanceConfig` | — | 性能配置 |
+| `onProgress` | `ProgressCallback` | — | 进度回调 |
+
+> ℹ️ **v0.4.0 移除的字段**：`maxSideLen` / `enableCache` / `cacheSize` / `enableGPU` / `numThreads` / `useMultiScale` / `useAngle_cls` / `threshold` — 如有 v0.3.x 用户，迁移指南见 CHANGELOG.md。
+
+## 完整功能示例
+
+### 表格识别（HTML/Markdown 输出）
 
 ```typescript
-PaddleOCR.getSupportedLanguages(): string[]
-PaddleOCR.isSupported(): Promise<boolean>
+const ocr = new PaddleOcr({ enableTable: true })
+await ocr.init()
+const table = await ocr.recognizeTable(image)
+console.log(table.html)        // HTML 表格
+console.log(table.markdown)    // Markdown 表格
 ```
 
-## 支持的语言
+### 公式识别
 
-- 中文 (ch)
-- 英语 (en)
-- 法语 (fr)
-- 德语 (de)
-- 西班牙语 (es)
-- 葡萄牙语 (pt)
-- 意大利语 (it)
-- 俄语 (ru)
-- 日语 (ja)
-- 韩语 (ko)
-- 阿拉伯语 (ar)
-- 印地语 (hi)
+```typescript
+const ocr = new PaddleOcr({ enableFormula: true })
+await ocr.init()
+const formulas = await ocr.recognizeFormula(image)
+console.log(formulas[0].latex) // \frac{a}{b}
+```
 
-## 浏览器支持
+### 批量识别 + 缓存
 
-- Chrome >= 80
-- Firefox >= 80
-- Safari >= 15
-- Edge >= 80
+```typescript
+const ocr = new PaddleOcr({
+  cacheOptions: { maxSize: 100, maxCount: 50 },
+})
+await ocr.init()
+const batch = await ocr.recognizeBatch([img1, img2, img3])
+console.log(batch.successCount, batch.totalDuration)
+```
 
-## 性能
+### Web Worker（浏览器不阻塞主线程）
 
-| 场景 | 耗时 (1080p) |
-|------|-------------|
-| 文本检测 | ~300ms |
-| 文本识别 | ~500ms |
-| 表格识别 | ~1500ms |
-| 公式识别 | ~1000ms |
+```typescript
+import { PaddleOcrWorker } from "paddleocr-js"
+
+const worker = new PaddleOcrWorker({ language: "ch" })
+await worker.init()
+const result = await worker.recognize(image)
+```
 
 ## 项目结构
 
 ```
 paddle-ocr.js/
 ├── src/
-│   ├── index.ts              # 统一入口
-│   ├── typings.ts            # 类型定义
-│   ├── PaddleOCRFacade.ts    # 主类（Facade模式）
-│   ├── worker.ts             # Web Worker入口
+│   ├── index.ts                # 统一导出 + version
+│   ├── typings.ts              # 所有公开类型 (PascalCase)
+│   ├── paddleOcr.ts            # Facade (230 行)
+│   ├── worker.ts               # Web Worker 入口
+│   ├── visualizerBase.ts       # 可视化共享基类
 │   ├── core/
-│   │   ├── Constants.ts      # 常量配置
-│   │   └── StatsManager.ts   # 统计管理
-│   ├── modules/              # 核心模块
-│   │   ├── textDetector.ts   # 文本检测
-│   │   ├── textRecognizer.ts # 文本识别
-│   │   ├── tableRecognizer.ts# 表格识别
-│   │   ├── layoutAnalyzer.ts # 版面分析
-│   │   ├── formulaRecognizer.ts # 公式识别
-│   │   └── barcodeRecognizer.ts # 条码识别
-│   └── utils/                # 工具函数
-│       ├── image.ts          # 图像处理
-│       ├── imageProcessor.ts # 图像预处理
-│       ├── cache.ts          # 缓存工具
-│       ├── env.ts            # 环境检测
-│       ├── resultVisualizer.ts # 结果可视化
-│       ├── lightVisualizer.ts  # 轻量可视化
-│       └── visualTypes.ts    # 可视化类型
-├── dist/                     # 编译输出
-│   ├── browser/              # 浏览器包（UMD）
-│   ├── node/                 # Node包（CommonJS）
-│   └── types/                # 类型声明
-├── docs/                     # 文档
-├── examples/                 # 示例
-└── tests/                    # 测试
+│   │   ├── constants.ts        # 默认配置
+│   │   └── statsManager.ts     # 统计
+│   ├── modules/                # 6 个 Recognizer
+│   │   ├── baseRecognizer.ts   # 抽象基类
+│   │   ├── textDetector.ts
+│   │   ├── textRecognizer.ts
+│   │   ├── tableRecognizer.ts  # DI 共享
+│   │   ├── layoutAnalyzer.ts   # DI 共享
+│   │   ├── formulaRecognizer.ts
+│   │   └── barcodeRecognizer.ts
+│   └── utils/
+│       ├── image.ts            # loadImage + hashKey
+│       ├── imageProcessor.ts   # ImageProcessor 静态
+│       ├── cache.ts            # LruCache<T> + ImageCache/ResultCache
+│       ├── modelLoader.ts      # Backend 抽象 + TF/ONNX 实现
+│       ├── modelPath.ts        # buildModelPath
+│       ├── workerHelper.ts     # PaddleOcrWorker
+│       ├── resultVisualizer.ts # 继承 VisualizerBase
+│       ├── lightVisualizer.ts  # 继承 VisualizerBase
+│       ├── visualTypes.ts
+│       └── env.ts
+├── docs/
+│   ├── architecture.md         # 重构后架构（推荐）
+│   ├── api.md                  # API 参考
+│   └── architecture.txt        # 速记图
+├── CHANGELOG.md                # v0.3.x → v0.4.0
+└── examples/                   # browser / node / react
 ```
+
+## 浏览器支持
+
+| 浏览器 | 最低版本 |
+|---|---|
+| Chrome | ≥ 80 |
+| Firefox | ≥ 80 |
+| Safari | ≥ 15 |
+| Edge | ≥ 80 |
 
 ## License
 
-Apache-2.0 License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+Apache-2.0
 
 ## 相关链接
 

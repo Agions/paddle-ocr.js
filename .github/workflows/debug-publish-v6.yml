@@ -1,0 +1,29 @@
+name: Debug Publish v6
+on: workflow_dispatch
+
+jobs:
+  try-real-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: full real publish 0.4.0 verbose
+        run: |
+          echo "=== package.json check ==="
+          cat package.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('name:', d['name']); print('version:', d['version'])"
+          echo ""
+          echo "=== npm publish --dry-run verbose ==="
+          npm publish --dry-run --access public --loglevel=verbose 2>&1 | tail -50
+          echo ""
+          echo "=== npm config get registry ==="
+          npm config get registry
+          echo ""
+          echo "=== final attempt: npm publish (real) ==="
+          npm publish --access public 2>&1 | tail -30
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

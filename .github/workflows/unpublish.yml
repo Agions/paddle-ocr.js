@@ -1,0 +1,27 @@
+name: Unpublish v0.4.0
+on: workflow_dispatch
+
+jobs:
+  unpublish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: unpublish
+        run: |
+          echo "=== whoami ==="
+          npm whoami
+          echo "=== check version ==="
+          npm view paddleocr-js@0.4.0 version 2>&1 | head -3
+          echo "=== unpublish 0.4.0 (force since > 24h)... actually < 72h ==="
+          # 72h 内可 unpublish
+          npm unpublish paddleocr-js@0.4.0 --force 2>&1 | tail -20
+          echo "=== verify ==="
+          npm view paddleocr-js@0.4.0 version 2>&1 | head -3 || echo "OK unpublish 成功"
+          echo "=== current dist-tags ==="
+          npm view paddleocr-js dist-tags 2>&1
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

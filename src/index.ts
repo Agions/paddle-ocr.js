@@ -8,7 +8,8 @@ import { ResultVisualizer } from "./utils/resultVisualizer"
 import { LightVisualizer } from "./utils/lightVisualizer"
 import { MODEL_PATH } from "./core/constants"
 
-const VERSION = "0.4.0"
+// 从 package.json 读取, 避免硬编码与发布版本脱节 (v0.4.0 → v0.4.2 修复)
+import { version as VERSION } from "../package.json"
 
 Object.defineProperties(PaddleOcr, {
   version: { value: VERSION, writable: false },

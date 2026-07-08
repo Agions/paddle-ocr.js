@@ -234,12 +234,17 @@ export interface PaddleOcrOptions {
   enableLayout?: boolean
   enableFormula?: boolean
   enableBarcode?: boolean
+  /**
+   * @deprecated v0.4.2: 水印检测功能未实现, 保留字段仅为兼容 v0.3.x.
+   *   设置后不会生效, 也不会报错. 完整实现见 [ROADMAP.md v0.5.0+](./ROADMAP.md).
+   */
   enableWatermark?: boolean
 
   tableOptions?: TableRecognitionOptions
   formulaOptions?: FormulaRecognitionOptions
   layoutOptions?: LayoutAnalysisOptions
   barcodeOptions?: BarcodeRecognitionOptions
+  /** @deprecated 与 enableWatermark 同步保留, 未实现. */
   watermarkOptions?: WatermarkDetectionOptions
 
   cacheOptions?: CacheConfig

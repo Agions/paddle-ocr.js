@@ -10,16 +10,14 @@ const fs = require("fs")
 const assetsExist = fs.existsSync(path.resolve(__dirname, "src/assets"))
 
 // 构建CopyPlugin配置
-const copyPatterns = [
-  {
-    from: "node_modules/onnxruntime-web/dist/*.wasm",
-    to: "[name][ext]",
-  },
-  {
-    from: "node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm",
-    to: "[name][ext]",
-  },
-]
+// 注: 之前 v0.4.0/v0.4.1 把 onnxruntime-web/tfjs-backend-wasm 的 *.wasm (77MB+)
+//   复制到 dist/ 并打包进 npm, 导致 tarball 117MB. v0.4.2 起:
+//   - WASM 改为运行时从 jsDelivr CDN 加载 (modelLoader.ts 设 ort.env.wasm.wasmPaths)
+//   - npm 包体积降到 ~40MB (-66%)
+//   - 浏览器首次加载需多 ~25MB WASM 下载, 但 jsDelivr CDN 缓存+ HTTP/2 复用
+//     用户体验更好 (npm install 快 5x, tarball 小)
+//   - Node.js 不需要 WASM (onnxruntime-web 是 native binding)
+const copyPatterns = []
 
 // 如果资源文件夹存在，添加到复制列表
 if (assetsExist) {
@@ -31,21 +29,9 @@ if (assetsExist) {
 }
 
 // 通用压缩插件配置
-const compressionPlugins = [
-  new CompressionPlugin({
-    test: /\.(js|css|html|svg|wasm)$/,
-    algorithm: "gzip",
-    threshold: 10240,
-    minRatio: 0.8,
-  }),
-  new CompressionPlugin({
-    test: /\.(js|css|html|svg|wasm)$/,
-    algorithm: "brotliCompress",
-    filename: "[path][base].br",
-    threshold: 10240,
-    minRatio: 0.8,
-  }),
-]
+// 注: .gz/.br 预压缩文件原本 -1.3MB. 现代 CDN (npmjs/jsDelivr/unpkg) 自动 gzip,
+//   预压缩是浪费. v0.4.2 起取消.
+const compressionPlugins = []
 
 // 主入口配置 - 非压缩版本
 const mainConfig = merge(common, {

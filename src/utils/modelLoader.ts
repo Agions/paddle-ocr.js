@@ -41,8 +41,21 @@ class TensorFlowBackend implements Backend {
 /** ONNX 后端 */
 class OnnxBackend implements Backend {
   kind: BackendKind = "onnx"
+  private static wasmPathsConfigured = false
+
   async load(modelPath: string): Promise<LoadedModel> {
     const ort = require("onnxruntime-web")
+    // v0.4.2+: WASM 文件从 jsDelivr CDN 运行时加载 (不打包进 npm, 节省 77MB)
+    // 浏览器首次加载会从 jsDelivr 下载 ~25MB WASM, 之后 HTTP 缓存复用
+    // 用户可设置 `options.wasmPaths` 覆盖 (e.g. 自托管 CDN/本地路径)
+    if (!OnnxBackend.wasmPathsConfigured) {
+      // 用 ort 暴露的 .env.wasm.wasmPaths 默认行为 (从 unpkg 加载),
+      // 显式指定 jsDelivr (中国/亚洲访问更稳).
+      // 静态版本号与 package.json 保持一致 (1.24.3, 见 dependencies).
+      ort.env.wasm.wasmPaths =
+        "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/"
+      OnnxBackend.wasmPathsConfigured = true
+    }
     return (await ort.InferenceSession.create(modelPath)) as LoadedModel
   }
 }

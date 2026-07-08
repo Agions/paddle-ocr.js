@@ -1,0 +1,21 @@
+name: Debug NPM Token
+on: workflow_dispatch
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+      - name: Test NPM token whoami
+        run: |
+          echo "NODE_AUTH_TOKEN length: ${#NODE_AUTH_TOKEN}"
+          # npmjs whoami
+          npm whoami 2>&1 || echo "(npm whoami failed)"
+          # 列出 user
+          npm profile get --json 2>&1 | head -30 || echo "(profile failed)"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

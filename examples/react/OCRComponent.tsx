@@ -1,23 +1,24 @@
 import React, { useState, useRef, useEffect } from "react"
-import PaddleOCR from "paddleocr-js"
+import { PaddleOcr, OcrResult } from "paddleocr-js"
+import type { LanguageOption } from "paddleocr-js"
 import "./OCRComponent.css"
 
-// 组件属性接口
+// 组件属性接口 (v0.4.x PaddleOcrOptions 子集)
 interface OCRComponentProps {
-  // 模型路径，默认为'/models'
+  /** 模型路径，默认为'/models' */
   modelPath?: string
-  // 识别语言，默认为'ch'（中文）
-  language?: string
-  // 是否使用WebAssembly加速，默认为true
-  useWasm?: boolean
-  // 是否启用表格识别，默认为false
+  /** 识别语言，默认为'ch'（中文） */
+  language?: LanguageOption
+  /** 是否使用 ONNX 后端 (v0.4.x 默认 TF.js) */
+  useOnnx?: boolean
+  /** 是否启用表格识别，默认为false */
   enableTable?: boolean
-  // 是否启用版面分析，默认为false
+  /** 是否启用版面分析，默认为false */
   enableLayout?: boolean
-  // 初始化后的回调函数
+  /** 初始化后的回调函数 */
   onInitialized?: () => void
-  // 识别结果回调函数
-  onResult?: (result: any) => void
+  /** 识别结果回调函数 (OcrResult 类型) */
+  onResult?: (result: OcrResult) => void
 }
 
 /**
@@ -27,14 +28,14 @@ interface OCRComponentProps {
 const OCRComponent: React.FC<OCRComponentProps> = ({
   modelPath = "/models",
   language = "ch",
-  useWasm = true,
+  useOnnx = false,
   enableTable = false,
   enableLayout = false,
   onInitialized,
   onResult,
 }) => {
-  // OCR实例
-  const [ocrInstance, setOcrInstance] = useState<any>(null)
+  // OCR 实例 (v0.4.x: PaddleOcr 替代 PaddleOCR)
+  const [ocrInstance, setOcrInstance] = useState<PaddleOcr | null>(null)
 
   // 界面状态
   const [isInitializing, setIsInitializing] = useState<boolean>(false)
@@ -76,16 +77,16 @@ const OCRComponent: React.FC<OCRComponentProps> = ({
         setIsInitializing(true)
         setError(null)
 
-        // 创建OCR实例
-        const paddleOCR = new PaddleOCR({
+        // 创建 OCR 实例 (v0.4.x PaddleOcr + PaddleOcrOptions)
+        const paddleOCR = new PaddleOcr({
           modelPath,
           language,
-          useWasm,
+          useOnnx,
           enableTable,
           enableLayout,
           onProgress: (p, stage) => {
             setProgress(p)
-            setProgressStage(stage)
+            setProgressStage(stage ?? "init")
           },
         })
 
@@ -115,7 +116,7 @@ const OCRComponent: React.FC<OCRComponentProps> = ({
       }
       stopCamera()
     }
-  }, [modelPath, language, useWasm, enableTable, enableLayout, onInitialized])
+  }, [modelPath, language, useOnnx, enableTable, enableLayout, onInitialized])
 
   // 清理函数
   const resetState = () => {

@@ -1,0 +1,34 @@
+name: Debug Publish v5
+on: workflow_dispatch
+
+jobs:
+  curl-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: comprehensive token test
+        run: |
+          echo "=== token: ${NODE_AUTH_TOKEN:0:15}... ==="
+          echo ""
+          echo "=== 1. whoami ==="
+          npm whoami 2>&1
+          echo ""
+          echo "=== 2. curl whoami raw ==="
+          curl -s -w "\nHTTP %{http_code}\n" -H "Authorization: Bearer $NODE_AUTH_TOKEN" https://registry.npmjs.org/-/whoami
+          echo ""
+          echo "=== 3. curl package HEAD ==="
+          curl -sI -H "Authorization: Bearer $NODE_AUTH_TOKEN" https://registry.npmjs.org/paddleocr-js 2>&1 | head -5
+          echo ""
+          echo "=== 4. PUT package URL with token (will fail expected) ==="
+          curl -sX PUT -w "\nHTTP %{http_code}\n" -H "Authorization: Bearer $NODE_AUTH_TOKEN" "https://registry.npmjs.org/paddleocr-js" 2>&1 | head -20
+          echo ""
+          echo "=== 5. PUT tarball path with token ==="
+          curl -sX PUT -w "\nHTTP %{http_code}\n" -H "Authorization: Bearer $NODE_AUTH_TOKEN" "https://registry.npmjs.org/paddleocr-js/-/paddleocr-js-0.4.0-test.tar.gz" 2>&1 | head -10
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
